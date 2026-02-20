@@ -900,8 +900,7 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         self.lblStatus.setText(f'計画「{name}」を削除しました')
 
     def _update_key1_count(self):
-        count = self.data_manager.get_key1_count(self._current_fids)
-        self.lblKey1Count.setText(f'フィーチャー数: {count}')
+        self.lblKey1Count.setText(f'フィーチャー数: {len(self._current_fids)}')
 
     def _activate_plan(self, name):
         """計画をアクティブ（ロック）状態にする。"""

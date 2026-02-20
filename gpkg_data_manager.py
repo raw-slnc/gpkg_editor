@@ -412,21 +412,6 @@ class GpkgDataManager:
                 writer.writerow(row)
         return True
 
-    def get_key1_count(self, fids):
-        """指定fidsのフィーチャーからユニークなKEY1の数を返す。"""
-        if not self.original_layer or not fids:
-            return 0
-        key1_idx = self.original_layer.fields().indexOf('KEY1')
-        if key1_idx < 0:
-            return 0
-        request = QgsFeatureRequest().setFilterFids(fids)
-        unique_keys = set()
-        for feat in self.original_layer.getFeatures(request):
-            val = feat.attribute(key1_idx)
-            if val is not None:
-                unique_keys.add(val)
-        return len(unique_keys)
-
     def close(self):
         """レイヤーを閉じる。"""
         self.original_layer = None
