@@ -1,0 +1,34 @@
+# This file contains metadata for your plugin.
+
+# This file should be included when you package your plugin.
+
+# Mandatory items:
+
+[general]
+name=GPKG Editor
+qgisMinimumVersion=3.0
+description=View and edit GeoPackage (GPKG) layer attributes with plan management and GPKG/CSV export. / GPKGレイヤーの属性を表示・編集し、計画管理とGPKG/CSV出力をサポートするプラグイン。
+version=0.1
+author=Hideharu Masai
+email=hideharumasai@void.mints.ne.jp
+
+about=Load a GPKG layer and view/edit attributes of selected features in a table. Edits are stored separately ({name}_data.sqlite), preserving the original GPKG intact. Features include: named plan management (save/restore feature sets with column configurations), expression-based status display rows, feature add/remove from plans, and GPKG/CSV export with edits applied. / GPKGファイルを読み込み、マップ上で選択した地物の属性をテーブルで表示・編集します。編集データは別SQLiteファイルに保存されオリジナルGPKGを保護します。計画管理（フィーチャーセットとカラム設定の保存・復元）、式ベースのステータス表示行、GPKG/CSV出力機能を提供します。
+
+tracker=https://github.com/raw-slnc/gpkg_editor/issues
+repository=https://github.com/raw-slnc/gpkg_editor
+# End of mandatory metadata
+
+# Recommended items:
+
+hasProcessingProvider=no
+changelog=
+    0.1 - Initial release
+
+tags=gpkg,geopackage,editor,vector,attribute,plan,table
+
+homepage=https://github.com/raw-slnc/gpkg_editor
+category=Vector
+icon=icon.png
+experimental=False
+deprecated=False
+server=False

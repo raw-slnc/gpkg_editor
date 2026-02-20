@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/plugins/gpkg_editor" >
+        <file>icon.png</file>
+    </qresource>
+</RCC>
