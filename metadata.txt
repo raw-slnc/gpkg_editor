@@ -7,7 +7,7 @@
 [general]
 name=GPKG Editor
 qgisMinimumVersion=3.16
-description=View and edit GeoPackage (GPKG) layer attributes with plan management and GPKG/CSV export. / GPKGレイヤーの属性を表示・編集し、計画管理とGPKG/CSV出力をサポートするプラグイン。
+description=View and edit GeoPackage (GPKG) layer attributes with plan management and GPKG/CSV export.
 version=0.1.1
 author=Hideharu Masai
 email=hideharumasai@void.mints.ne.jp
