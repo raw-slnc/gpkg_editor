@@ -253,6 +253,13 @@
            </property>
           </widget>
          </item>
+         <item row="2" column="0">
+          <widget class="QCheckBox" name="chkOverwrite">
+           <property name="text">
+            <string>GPKGレイヤーに上書き保存する</string>
+           </property>
+          </widget>
+         </item>
          <item row="2" column="1">
           <widget class="QCheckBox" name="chkPlanOnly">
            <property name="text">
@@ -296,6 +303,117 @@
         </layout>
        </widget>
       </item>
+      <!-- ショートカットセクション -->
+      <item>
+       <widget class="QGroupBox" name="groupShortcuts">
+        <property name="title">
+         <string>ショートカット</string>
+        </property>
+        <layout class="QGridLayout" name="shortcutsGrid">
+         <property name="spacing"><number>2</number></property>
+         <property name="leftMargin"><number>6</number></property>
+         <property name="topMargin"><number>4</number></property>
+         <property name="rightMargin"><number>6</number></property>
+         <property name="bottomMargin"><number>4</number></property>
+         <item row="0" column="0">
+          <widget class="QLabel" name="lblKey1">
+           <property name="text"><string>Ctrl+F</string></property>
+           <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QLabel" name="lblDesc1">
+           <property name="text"><string>全画面切替</string></property>
+           <property name="styleSheet"><string>font-size: 11px;</string></property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="lblKey2">
+           <property name="text"><string>Ctrl+S</string></property>
+           <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QLabel" name="lblDesc2">
+           <property name="text"><string>計画を保存</string></property>
+           <property name="styleSheet"><string>font-size: 11px;</string></property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="lblKey3">
+           <property name="text"><string>Ctrl+C</string></property>
+           <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QLabel" name="lblDesc3">
+           <property name="text"><string>セルをコピー（タブ区切り）</string></property>
+           <property name="styleSheet"><string>font-size: 11px;</string></property>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="lblKey4">
+           <property name="text"><string>Ctrl+V</string></property>
+           <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+          </widget>
+         </item>
+         <item row="3" column="1">
+          <widget class="QLabel" name="lblDesc4">
+           <property name="text"><string>クリップボードから貼り付け</string></property>
+           <property name="styleSheet"><string>font-size: 11px;</string></property>
+          </widget>
+         </item>
+         <item row="4" column="0">
+          <widget class="QLabel" name="lblKey5">
+           <property name="text"><string>Shift+Scroll</string></property>
+           <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+          </widget>
+         </item>
+         <item row="4" column="1">
+          <widget class="QLabel" name="lblDesc5">
+           <property name="text"><string>横スクロール</string></property>
+           <property name="styleSheet"><string>font-size: 11px;</string></property>
+          </widget>
+         </item>
+         <item row="5" column="0">
+          <widget class="QLabel" name="lblKey6">
+           <property name="text"><string>Ctrl+Arrow</string></property>
+           <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+          </widget>
+         </item>
+         <item row="5" column="1">
+          <widget class="QLabel" name="lblDesc6">
+           <property name="text"><string>末端セルへ移動</string></property>
+           <property name="styleSheet"><string>font-size: 11px;</string></property>
+          </widget>
+         </item>
+         <item row="6" column="0">
+          <widget class="QLabel" name="lblKey7">
+           <property name="text"><string>Ctrl+Shift+Arrow</string></property>
+           <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+          </widget>
+         </item>
+         <item row="6" column="1">
+          <widget class="QLabel" name="lblDesc7">
+           <property name="text"><string>末端セルまで選択</string></property>
+           <property name="styleSheet"><string>font-size: 11px;</string></property>
+          </widget>
+         </item>
+         <item row="7" column="0">
+          <widget class="QLabel" name="lblKey8">
+           <property name="text"><string>Enter</string></property>
+           <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+          </widget>
+         </item>
+         <item row="7" column="1">
+          <widget class="QLabel" name="lblDesc8">
+           <property name="text"><string>セル編集モード切替</string></property>
+           <property name="styleSheet"><string>font-size: 11px;</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
       <item>
        <spacer name="leftSpacer">
         <property name="orientation">
@@ -328,25 +446,50 @@
         <property name="title">
          <string>ステータス</string>
         </property>
-        <layout class="QVBoxLayout" name="statusDisplayLayout">
-         <property name="spacing"><number>0</number></property>
+        <layout class="QHBoxLayout" name="statusDisplayLayout">
+         <property name="spacing"><number>4</number></property>
          <item>
-          <widget class="QLabel" name="lblStatusRow1">
-           <property name="text">
-            <string></string>
-           </property>
-           <property name="styleSheet">
-            <string>font-size: 12px;</string>
-           </property>
-          </widget>
+          <layout class="QVBoxLayout" name="statusLabelsLayout">
+           <property name="spacing"><number>0</number></property>
+           <item>
+            <widget class="QLabel" name="lblStatusRow1">
+             <property name="text">
+              <string></string>
+             </property>
+             <property name="styleSheet">
+              <string>font-size: 12px;</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="lblStatusRow2">
+             <property name="text">
+              <string></string>
+             </property>
+             <property name="styleSheet">
+              <string>font-size: 12px;</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
          </item>
          <item>
-          <widget class="QLabel" name="lblStatusRow2">
-           <property name="text">
-            <string></string>
+          <spacer name="statusSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
            </property>
-           <property name="styleSheet">
-            <string>font-size: 12px;</string>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="chkShowAll">
+           <property name="text">
+            <string>全体表示</string>
            </property>
           </widget>
          </item>
@@ -368,6 +511,42 @@
          <enum>QAbstractItemView::ScrollPerPixel</enum>
         </property>
        </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="legendLayout">
+        <property name="spacing"><number>12</number></property>
+        <item>
+         <widget class="QLabel" name="lblLegendDisplay">
+          <property name="text"><string>■ 表示のみ</string></property>
+          <property name="styleSheet"><string>color: #000000; font-size: 11px;</string></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="lblLegendEditable">
+          <property name="text"><string>■ 編集可能</string></property>
+          <property name="styleSheet"><string>color: #0066cc; font-size: 11px;</string></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="lblLegendEdited">
+          <property name="text"><string>■ 編集済み</string></property>
+          <property name="styleSheet"><string>color: #cc0000; font-size: 11px;</string></property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="legendSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
       </item>
      </layout>
     </widget>

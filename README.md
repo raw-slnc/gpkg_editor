@@ -51,7 +51,7 @@ Aggregate functions (applied to all rows):
 | Ctrl+S | Save current plan |
 | Ctrl+C | Copy selected cells (tab-separated) |
 | Ctrl+V | Paste clipboard to selected cells |
-| Ctrl+Shift+Scroll | Horizontal scroll |
+| Shift+Scroll | Horizontal scroll |
 | Ctrl+Arrow | Move to end cell |
 | Ctrl+Shift+Arrow | Select to end cell |
 | Enter | Toggle edit mode for current cell |

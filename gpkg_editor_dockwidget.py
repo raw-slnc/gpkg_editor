@@ -65,6 +65,7 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         self._editing = False
         self._locked = False
         self._rubber_bands = []
+        self._rubber_bands_base = []   # 全体表示モード用（計画全フィーチャー）
         self._plan_active = False
         self._active_plan_name = None
         self._status_expr1 = ''
@@ -84,6 +85,8 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         self.btnExportGpkg.clicked.connect(self._on_export_gpkg)
         self.btnExportCsv.clicked.connect(self._on_export_csv)
         self.btnLock.toggled.connect(self._on_lock_toggled)
+        self.chkOverwrite.toggled.connect(self._on_overwrite_toggled)
+        self.chkShowAll.toggled.connect(self._on_show_all_toggled)
         self.btnPlanSave.clicked.connect(self._on_plan_save)
         self.btnPlanDelete.clicked.connect(self._on_plan_delete)
         self.btnPlanAddShouban.clicked.connect(self._on_plan_add_shouban)
@@ -162,15 +165,9 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
             elif event.type() == QEvent.MouseButtonPress and event.button() == Qt.RightButton:
                 self._cancel_click_context()
 
-        # Ctrl+Shift+ホイール → 横スクロール
+        # Shift+ホイール → 横スクロール
         if obj == self.tableFeatures.viewport() and event.type() == QEvent.Wheel:
-            mods = event.modifiers()
-            if mods == (Qt.ControlModifier | Qt.ShiftModifier):
-                sb = self.tableFeatures.horizontalScrollBar()
-                sb.setValue(sb.value() - event.angleDelta().y())
-                return True
-            # macOS: Shift+ホイールも横スクロール
-            if mods == Qt.ShiftModifier:
+            if event.modifiers() == Qt.ShiftModifier:
                 sb = self.tableFeatures.horizontalScrollBar()
                 sb.setValue(sb.value() - event.angleDelta().y())
                 return True
@@ -272,6 +269,7 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
     def cleanup(self):
         """プラグイン終了時のリソース解放。unload から呼ばれる。"""
         self._clear_rubber_bands()
+        self._clear_rubber_bands_base()
         try:
             self.iface.mapCanvas().selectionChanged.disconnect(
                 self._on_selection_changed
@@ -409,10 +407,21 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         self._highlight_features([fid] if fid is not None else [])
 
     def _highlight_features(self, fids):
-        """複数フィーチャーをラバーバンドで強調表示する。"""
+        """複数フィーチャーをラバーバンドで強調表示する。
+        全体表示モード時は90%透過の黄色で選択フィーチャーを表示する。
+        """
         self._clear_rubber_bands()
         if not self.data_manager.original_layer or not fids:
             return
+
+        if self.chkShowAll.isChecked():
+            stroke = QColor(255, 200, 0, 200)  # アンバー（不透明寄り）
+            fill = QColor(255, 255, 0, 26)      # 黄色 90%透過 (alpha≈26)
+            width = 2.0
+        else:
+            stroke = QColor(255, 0, 0, 180)
+            fill = QColor(0, 0, 0, 0)
+            width = 1.3
 
         request = QgsFeatureRequest().setFilterFids(fids)
         for feat in self.data_manager.original_layer.getFeatures(request):
@@ -420,9 +429,9 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
                 continue
             geom_type = feat.geometry().type()
             rb = QgsRubberBand(self.iface.mapCanvas(), geom_type)
-            rb.setStrokeColor(QColor(255, 0, 0, 180))
-            rb.setFillColor(QColor(0, 0, 0, 0))
-            rb.setWidth(1.3)
+            rb.setStrokeColor(stroke)
+            rb.setFillColor(fill)
+            rb.setWidth(width)
             rb.setToGeometry(feat.geometry(), self.data_manager.original_layer)
             self._rubber_bands.append(rb)
 
@@ -431,27 +440,86 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
             self.iface.mapCanvas().scene().removeItem(rb)
         self._rubber_bands.clear()
 
+    def _clear_rubber_bands_base(self):
+        """全体表示用ラバーバンド（計画全フィーチャー）をクリアする。"""
+        for rb in self._rubber_bands_base:
+            self.iface.mapCanvas().scene().removeItem(rb)
+        self._rubber_bands_base.clear()
+
+    def _update_show_all_display(self):
+        """全体表示モードで計画全フィーチャーをラバーバンド表示する。"""
+        self._clear_rubber_bands_base()
+        if not self.chkShowAll.isChecked():
+            return
+        if not self._current_fids or not self.data_manager.original_layer:
+            return
+        request = QgsFeatureRequest().setFilterFids(self._current_fids)
+        for feat in self.data_manager.original_layer.getFeatures(request):
+            if feat.geometry().isNull():
+                continue
+            geom_type = feat.geometry().type()
+            rb = QgsRubberBand(self.iface.mapCanvas(), geom_type)
+            rb.setStrokeColor(QColor(255, 0, 0, 120))
+            rb.setFillColor(QColor(0, 0, 0, 0))
+            rb.setWidth(1.0)
+            rb.setToGeometry(feat.geometry(), self.data_manager.original_layer)
+            self._rubber_bands_base.append(rb)
+
+    def _on_show_all_toggled(self, checked):
+        """全体表示チェックの切り替え処理。"""
+        if checked:
+            self._update_show_all_display()
+        else:
+            self._clear_rubber_bands_base()
+            fids = self._get_selected_fids()
+            if fids and (self._locked or self._plan_active):
+                self._highlight_features(fids)
+            else:
+                self._clear_rubber_bands()
+
     def _on_table_row_changed(self, current, _previous):
-        """ロック中または計画アクティブ時：テーブル行選択→マップ中心移動。"""
+        """ロック中または計画アクティブ時：テーブル行選択→マップ中心移動。
+        複数選択時は全選択フィーチャーの合算バウンディングボックス中心に移動する。
+        """
         if not self._locked and not self._plan_active:
             return
         if not current.isValid():
             return
-        item = self.tableFeatures.item(current.row(), 0)
-        if not item:
-            return
-        fid = item.data(Qt.UserRole)
-        if fid is None or not self.data_manager.original_layer:
+        if not self.data_manager.original_layer:
             return
 
-        request = QgsFeatureRequest().setFilterFids([fid])
-        feat = next(
-            self.data_manager.original_layer.getFeatures(request), None
-        )
-        if feat and not feat.geometry().isNull():
-            center = feat.geometry().centroid().asPoint()
-            self.iface.mapCanvas().setCenter(center)
-            self.iface.mapCanvas().refresh()
+        selected_fids = self._get_selected_fids()
+        if not selected_fids:
+            item = self.tableFeatures.item(current.row(), 0)
+            if item:
+                fid = item.data(Qt.UserRole)
+                if fid is not None:
+                    selected_fids = [fid]
+        if not selected_fids:
+            return
+
+        if len(selected_fids) == 1:
+            request = QgsFeatureRequest().setFilterFids(selected_fids)
+            feat = next(self.data_manager.original_layer.getFeatures(request), None)
+            if feat and not feat.geometry().isNull():
+                center = feat.geometry().centroid().asPoint()
+                self.iface.mapCanvas().setCenter(center)
+                self.iface.mapCanvas().refresh()
+        else:
+            # 複数選択: 全フィーチャーの合算バウンディングボックス中心へ移動
+            combined_extent = None
+            request = QgsFeatureRequest().setFilterFids(selected_fids)
+            for feat in self.data_manager.original_layer.getFeatures(request):
+                if feat.geometry().isNull():
+                    continue
+                bbox = feat.geometry().boundingBox()
+                if combined_extent is None:
+                    combined_extent = QgsRectangle(bbox)
+                else:
+                    combined_extent.combineExtentWith(bbox)
+            if combined_extent and not combined_extent.isEmpty():
+                self.iface.mapCanvas().setCenter(combined_extent.center())
+                self.iface.mapCanvas().refresh()
 
     def _on_table_selection_changed(self, selected, deselected):
         """テーブルの選択変更時：選択された全フィーチャーを強調表示。"""
@@ -707,6 +775,7 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         self._current_fids = []
         self._current_merged_data = []
         self._editing = False
+        self._clear_rubber_bands_base()
         self._update_status_display()
 
     def _update_table(self, fids):
@@ -761,6 +830,7 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         self._current_merged_data = merged
         self._update_key1_count()
         self._update_status_display()
+        self._update_show_all_display()
 
     # ──────────────────────────────────────────────
     # セル編集
@@ -917,6 +987,7 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         self.btnPlanAddShouban.setText('フィーチャーの追加')
         self.btnPlanAddShouban.setEnabled(False)
         self.btnPlanDeleteShouban.setEnabled(False)
+        self._clear_rubber_bands_base()
         if not self._locked:
             self._clear_rubber_bands()
 
@@ -1191,7 +1262,15 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
             return True, self._current_fids
         return True, None
 
+    def _on_overwrite_toggled(self, checked):
+        """上書き保存チェック時は「計画範囲のみ出力」を無効化する。"""
+        self.chkPlanOnly.setEnabled(not checked)
+
     def _on_export_gpkg(self):
+        if self.chkOverwrite.isChecked():
+            self._overwrite_gpkg()
+            return
+
         ok, fids = self._get_export_fids()
         if not ok:
             return
@@ -1208,6 +1287,61 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
             QMessageBox.information(self, '完了', f'GPKGファイルを出力しました:\n{path}')
         except Exception as e:
             QMessageBox.critical(self, 'エラー', f'GPKG出力に失敗しました: {e}')
+
+    def _overwrite_gpkg(self):
+        """編集内容をQGIS標準編集APIでGPKGに直接書き込む（FID・未編集属性を保持）。"""
+        path = self.data_manager.original_path
+        if not path:
+            return
+
+        layer_id = self.cmbGpkgLayer.currentData()
+        layer = QgsProject.instance().mapLayer(layer_id)
+        if not layer:
+            return
+
+        all_edits = self.data_manager.get_all_edits()
+        if not all_edits:
+            QMessageBox.information(self, '情報', '保存する編集がありません。')
+            return
+
+        ret = QMessageBox.warning(
+            self, '上書き確認',
+            f'元のGPKGファイルに編集を書き込みます:\n{path}\n\nこの操作は取り消せません。よろしいですか？',
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if ret != QMessageBox.Yes:
+            return
+
+        try:
+            layer.startEditing()
+            fields = layer.fields()
+
+            for fid, col_edits in all_edits.items():
+                for col_name, value in col_edits.items():
+                    field_idx = fields.indexOf(col_name)
+                    if field_idx < 0:
+                        continue
+                    layer.changeAttributeValue(fid, field_idx, value)
+
+            if not layer.commitChanges():
+                errors = layer.commitErrors()
+                raise Exception('\n'.join(errors))
+
+            # 編集データをクリア（GPKGに反映済み）
+            self.data_manager.clear_edits()
+
+            # data_manager の original_layer を再読み込み（キャッシュリセット）
+            self.data_manager.load_gpkg(path)
+
+            # テーブルを更新（編集フラグをリセット）
+            if self._current_fids:
+                self._update_table(self._current_fids)
+
+            self.lblStatus.setText('上書き保存が完了しました')
+            QMessageBox.information(self, '完了', f'GPKGファイルに編集を書き込みました:\n{path}')
+        except Exception as e:
+            layer.rollBack()
+            QMessageBox.critical(self, 'エラー', f'上書き保存に失敗しました: {e}')
 
     def _on_export_csv(self):
         ok, fids = self._get_export_fids()

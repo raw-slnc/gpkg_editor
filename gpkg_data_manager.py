@@ -214,6 +214,37 @@ class GpkgDataManager:
             conn.close()
         return edit_data
 
+    def get_all_edits(self):
+        """全編集データを返す: {orig_fid: {col_name: value}}"""
+        if not self._db_path or not os.path.exists(self._db_path):
+            return {}
+        conn = sqlite3.connect(self._db_path)
+        try:
+            rows = conn.execute(
+                'SELECT orig_fid, col_name, value FROM edits'
+            ).fetchall()
+            result = {}
+            for orig_fid, col_name, value in rows:
+                if orig_fid not in result:
+                    result[orig_fid] = {}
+                result[orig_fid][col_name] = value
+            return result
+        except sqlite3.OperationalError:
+            return {}
+        finally:
+            conn.close()
+
+    def clear_edits(self):
+        """編集データをすべてクリアする（上書き保存後に呼ぶ）。"""
+        conn = self._open_db()
+        if not conn:
+            return
+        try:
+            conn.execute('DELETE FROM edits')
+            conn.commit()
+        finally:
+            conn.close()
+
     def save_edit(self, fid, column, value, edit_cols):
         """編集データを保存する。"""
         conn = self._open_db()
