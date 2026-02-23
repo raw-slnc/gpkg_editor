@@ -20,20 +20,28 @@ FORM_CLASS, _ = uic.loadUiType(
 COLUMN_HIDDEN = '非表示'
 COLUMN_DISPLAY = '表示のみ'
 COLUMN_EDITABLE = '表示＋編集'
+COLUMN_INFO = '情報'
 
-_STATES = [COLUMN_HIDDEN, COLUMN_DISPLAY, COLUMN_EDITABLE]
-_BTN_TEXT = {COLUMN_HIDDEN: '非表示', COLUMN_DISPLAY: '表示', COLUMN_EDITABLE: '編集'}
+_STATES = [COLUMN_HIDDEN, COLUMN_DISPLAY, COLUMN_EDITABLE, COLUMN_INFO]
+_BTN_TEXT = {
+    COLUMN_HIDDEN: '非表示',
+    COLUMN_DISPLAY: '表示',
+    COLUMN_EDITABLE: '編集',
+    COLUMN_INFO: '情報',
+}
 _BTN_STYLE = {
     COLUMN_HIDDEN: 'QPushButton{background:#cccccc;color:#666666;border:1px solid #aaa;padding:2px 8px;}',
     COLUMN_DISPLAY: 'QPushButton{background:#4a90d9;color:white;border:1px solid #357abd;padding:2px 8px;}',
     COLUMN_EDITABLE: 'QPushButton{background:#27ae60;color:white;border:1px solid #1e8449;padding:2px 8px;}',
+    COLUMN_INFO: 'QPushButton{background:#e67e22;color:white;border:1px solid #ca6f1e;padding:2px 8px;}',
 }
 
 _FILTER_ALL = '全て'
 _FILTER_DISPLAY = '表示のみ'
 _FILTER_EDITABLE = '表示編集のみ'
+_FILTER_INFO = '情報のみ'
 _FILTER_HIDDEN = '選択無し'
-_FILTERS = [_FILTER_ALL, _FILTER_DISPLAY, _FILTER_EDITABLE, _FILTER_HIDDEN]
+_FILTERS = [_FILTER_ALL, _FILTER_DISPLAY, _FILTER_EDITABLE, _FILTER_INFO, _FILTER_HIDDEN]
 
 
 class ColumnConfigDialog(QDialog, FORM_CLASS):
@@ -82,6 +90,8 @@ class ColumnConfigDialog(QDialog, FORM_CLASS):
             return [c for c in self.columns if self._config[c] == COLUMN_DISPLAY]
         elif f == _FILTER_EDITABLE:
             return [c for c in self.columns if self._config[c] == COLUMN_EDITABLE]
+        elif f == _FILTER_INFO:
+            return [c for c in self.columns if self._config[c] == COLUMN_INFO]
         elif f == _FILTER_HIDDEN:
             return [c for c in self.columns if self._config[c] == COLUMN_HIDDEN]
         return self.columns
@@ -188,8 +198,11 @@ class ColumnConfigDialog(QDialog, FORM_CLASS):
     def get_editable_columns(self):
         return [c for c, v in self._config.items() if v == COLUMN_EDITABLE]
 
+    def get_info_columns(self):
+        return [c for c, v in self._config.items() if v == COLUMN_INFO]
+
     def get_visible_columns(self):
         return [
             c for c, v in self._config.items()
-            if v in (COLUMN_DISPLAY, COLUMN_EDITABLE)
+            if v in (COLUMN_DISPLAY, COLUMN_EDITABLE, COLUMN_INFO)
         ]

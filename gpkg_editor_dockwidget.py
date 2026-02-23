@@ -9,8 +9,10 @@ from qgis.PyQt.QtWidgets import (
     QDialogButtonBox,
     QFileDialog,
     QInputDialog,
+    QHBoxLayout,
     QLabel,
     QPlainTextEdit,
+    QPushButton,
     QTableWidgetItem,
     QMessageBox,
     QHeaderView,
@@ -37,6 +39,7 @@ from .column_config_dialog import (
     COLUMN_HIDDEN,
     COLUMN_DISPLAY,
     COLUMN_EDITABLE,
+    COLUMN_INFO,
 )
 
 FORM_CLASS, _ = uic.loadUiType(
@@ -765,8 +768,11 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
     def _get_edit_cols(self):
         return [c for c, v in self.column_config.items() if v == COLUMN_EDITABLE]
 
+    def _get_info_cols(self):
+        return [c for c, v in self.column_config.items() if v == COLUMN_INFO]
+
     def _get_visible_cols(self):
-        return self._get_display_cols() + self._get_edit_cols()
+        return self._get_display_cols() + self._get_edit_cols() + self._get_info_cols()
 
     def _clear_table(self):
         self._editing = True
@@ -783,6 +789,7 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
 
         display_cols = self._get_display_cols()
         edit_cols = self._get_edit_cols()
+        info_cols = self._get_info_cols()
         visible_cols = self._get_visible_cols()
 
         if not visible_cols:
@@ -793,7 +800,9 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
             self._editing = False
             return
 
-        merged = self.data_manager.get_merged_features(fids, display_cols, edit_cols)
+        merged = self.data_manager.get_merged_features(
+            fids, display_cols + info_cols, edit_cols
+        )
 
         self.tableFeatures.setColumnCount(len(visible_cols))
         self.tableFeatures.setHorizontalHeaderLabels(visible_cols)
@@ -903,7 +912,9 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         if not plan:
             return
 
-        self.column_config = plan['column_config']
+        raw_config = plan['column_config']
+        raw_config.pop('__col_order__', None)  # 旧バージョンの残存キーを除去
+        self.column_config = raw_config
         self._current_fids = plan['fids']
         self.lineEditPlanName.setText(plan_name)
 
@@ -1190,6 +1201,16 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
             self._update_status_display()
             self._auto_save_plan_status()
 
+    # 関数挿入ボタンの定義: (ボタンラベル, 挿入テキスト)
+    _INSERT_SNIPPETS = [
+        ('||',        ' || '),
+        ('if()',      'if(, , )'),
+        ('round()',   'round(, )'),
+        ('count()',   'count()'),
+        ('sum()',     'sum("")'),
+        ('unique()',  'unique("")'),
+    ]
+
     def _edit_status_expr(self, title, current_text):
         dlg = QDialog(self)
         dlg.setWindowTitle(title)
@@ -1204,9 +1225,25 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         edit = QPlainTextEdit(dlg)
         edit.setPlainText(current_text or '')
         edit.setTabChangesFocus(True)
+        font = edit.font()
+        ps = font.pointSize()
+        if ps > 0:
+            font.setPointSize(ps + 1)
+        edit.setFont(font)
         fm = edit.fontMetrics()
-        edit.setFixedHeight(fm.lineSpacing() * 2 + 12)
+        edit.setFixedHeight(fm.lineSpacing() * 6 + 12)
         layout.addWidget(edit)
+
+        # 関数挿入ボタン
+        btn_layout = QHBoxLayout()
+        for label, snippet in self._INSERT_SNIPPETS:
+            btn = QPushButton(label, dlg)
+            btn.setFocusPolicy(Qt.NoFocus)
+            btn.clicked.connect(
+                lambda _, s=snippet: edit.insertPlainText(s)
+            )
+            btn_layout.addWidget(btn)
+        layout.addLayout(btn_layout)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel, parent=dlg
@@ -1220,7 +1257,7 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
             max_width = int(screen.availableGeometry().width() * 0.9)
         else:
             max_width = 1200
-        target_width = 400
+        target_width = 560
         dlg.resize(min(target_width, max_width), dlg.sizeHint().height())
 
         if dlg.exec_() == QDialog.Accepted:
