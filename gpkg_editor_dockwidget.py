@@ -74,7 +74,7 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         self._status_expr1 = ''
         self._status_expr2 = ''
         self._current_merged_data = []
-        self._shouban_add_mode = False  # フィーチャー追加フロー中かどうか
+        self._feature_add_mode = False  # フィーチャー追加フロー中かどうか
         self._canvas_press_pos = None
         self._last_canvas_click_point = None
         self._last_canvas_click_time = 0.0
@@ -92,8 +92,8 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         self.chkShowAll.toggled.connect(self._on_show_all_toggled)
         self.btnPlanSave.clicked.connect(self._on_plan_save)
         self.btnPlanDelete.clicked.connect(self._on_plan_delete)
-        self.btnPlanAddShouban.clicked.connect(self._on_plan_add_shouban)
-        self.btnPlanDeleteShouban.clicked.connect(self._on_plan_delete_shouban)
+        self.btnPlanAddFeature.clicked.connect(self._on_plan_add_feature)
+        self.btnPlanDeleteFeature.clicked.connect(self._on_plan_delete_feature)
         self.cmbPlan.currentIndexChanged.connect(self._on_plan_selected)
         self.btnStatusRow1.clicked.connect(self._on_status_row1_config)
         self.btnStatusRow2.clicked.connect(self._on_status_row2_config)
@@ -636,7 +636,7 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
             return
         if not self.data_manager.original_layer:
             return
-        if self._shouban_add_mode:
+        if self._feature_add_mode:
             self._update_add_mode_button()
             return
         if layer and not self._is_same_source(layer):
@@ -704,7 +704,7 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
             return selected
         if not self._last_canvas_click_point:
             return selected
-        if not self._shouban_add_mode:
+        if not self._feature_add_mode:
             if time.time() - self._last_canvas_click_time > 5.0:
                 return selected
         if self._last_canvas_click_layer_id and layer:
@@ -837,7 +837,7 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         self.tableFeatures.horizontalHeader().setMinimumSectionSize(100)
         self._editing = False
         self._current_merged_data = merged
-        self._update_key1_count()
+        self._update_feature_count()
         self._update_status_display()
         self._update_show_all_display()
 
@@ -883,13 +883,13 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         self.lineEditPlanName.setEnabled(enabled)
         self.btnPlanSave.setEnabled(enabled)
         self.btnPlanDelete.setEnabled(enabled)
-        self.btnPlanAddShouban.setEnabled(False)
-        self.btnPlanDeleteShouban.setEnabled(False)
+        self.btnPlanAddFeature.setEnabled(False)
+        self.btnPlanDeleteFeature.setEnabled(False)
         if not enabled:
             self._deactivate_plan()
             self.cmbPlan.clear()
             self.lineEditPlanName.clear()
-            self.lblKey1Count.setText('フィーチャー数: -')
+            self.lblFeatureCount.setText('フィーチャー数: -')
 
     def _refresh_plan_combo(self):
         self.cmbPlan.blockSignals(True)
@@ -980,36 +980,36 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         self._refresh_plan_combo()
         self.lblStatus.setText(f'計画「{name}」を削除しました')
 
-    def _update_key1_count(self):
-        self.lblKey1Count.setText(f'フィーチャー数: {len(self._current_fids)}')
+    def _update_feature_count(self):
+        self.lblFeatureCount.setText(f'フィーチャー数: {len(self._current_fids)}')
 
     def _activate_plan(self, name):
         """計画をアクティブ（ロック）状態にする。"""
         self._plan_active = True
         self._active_plan_name = name
-        self.btnPlanAddShouban.setEnabled(True)
-        self.btnPlanDeleteShouban.setEnabled(True)
+        self.btnPlanAddFeature.setEnabled(True)
+        self.btnPlanDeleteFeature.setEnabled(True)
 
     def _deactivate_plan(self):
         """計画のアクティブ状態を解除する。"""
         self._plan_active = False
         self._active_plan_name = None
-        self._shouban_add_mode = False
-        self.btnPlanAddShouban.setText('フィーチャーの追加')
-        self.btnPlanAddShouban.setEnabled(False)
-        self.btnPlanDeleteShouban.setEnabled(False)
+        self._feature_add_mode = False
+        self.btnPlanAddFeature.setText('フィーチャーの追加')
+        self.btnPlanAddFeature.setEnabled(False)
+        self.btnPlanDeleteFeature.setEnabled(False)
         self._clear_rubber_bands_base()
         if not self._locked:
             self._clear_rubber_bands()
 
-    def _on_plan_add_shouban(self):
+    def _on_plan_add_feature(self):
         """フィーチャーの追加: 2段階フロー。"""
         if not self._plan_active or not self._active_plan_name:
             return
 
-        if not self._shouban_add_mode:
+        if not self._feature_add_mode:
             # Step 1: 選択モードに入る
-            self._shouban_add_mode = True
+            self._feature_add_mode = True
             self._update_add_mode_button()
             self.lblStatus.setText(
                 'メインウィンドウでフィーチャーを選択してください（複数選択可）'
@@ -1018,16 +1018,16 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
 
         active_layer = self._get_add_mode_layer()
         if not active_layer:
-            self._shouban_add_mode = False
-            self.btnPlanAddShouban.setText('フィーチャーの追加')
+            self._feature_add_mode = False
+            self.btnPlanAddFeature.setText('フィーチャーの追加')
             self.lblStatus.setText('フィーチャーの追加をキャンセルしました')
             return
 
         selected = active_layer.selectedFeatures()
         selected = self._get_effective_selection(active_layer, selected)
         if not selected:
-            self._shouban_add_mode = False
-            self.btnPlanAddShouban.setText('フィーチャーの追加')
+            self._feature_add_mode = False
+            self.btnPlanAddFeature.setText('フィーチャーの追加')
             self.lblStatus.setText('フィーチャーの追加をキャンセルしました')
             return
 
@@ -1054,8 +1054,8 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         added = [fid for fid in new_fids if fid not in existing]
 
         if not added:
-            self._shouban_add_mode = False
-            self.btnPlanAddShouban.setText('フィーチャーの追加')
+            self._feature_add_mode = False
+            self.btnPlanAddFeature.setText('フィーチャーの追加')
             self.lblStatus.setText('選択されたフィーチャーはすべて計画に含まれています')
             return
 
@@ -1066,8 +1066,8 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
             QMessageBox.Ok | QMessageBox.Cancel,
         )
         if ret != QMessageBox.Ok:
-            self._shouban_add_mode = False
-            self.btnPlanAddShouban.setText('フィーチャーの追加')
+            self._feature_add_mode = False
+            self.btnPlanAddFeature.setText('フィーチャーの追加')
             self.lblStatus.setText('フィーチャーの追加をキャンセルしました')
             return
 
@@ -1083,8 +1083,8 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         self._clear_rubber_bands()
 
         # モードをリセット
-        self._shouban_add_mode = False
-        self.btnPlanAddShouban.setText('フィーチャーの追加')
+        self._feature_add_mode = False
+        self.btnPlanAddFeature.setText('フィーチャーの追加')
         self.lblStatus.setText(
             f'{len(added)} 件のフィーチャーを追加しました '
             f'(計 {len(self._current_fids)} 件)'
@@ -1104,11 +1104,11 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         active_layer = self._get_add_mode_layer()
         selected = active_layer.selectedFeatures() if active_layer else []
         if selected:
-            self.btnPlanAddShouban.setText('選択を確定する')
+            self.btnPlanAddFeature.setText('選択を確定する')
         else:
-            self.btnPlanAddShouban.setText('キャンセル')
+            self.btnPlanAddFeature.setText('キャンセル')
 
-    def _on_plan_delete_shouban(self):
+    def _on_plan_delete_feature(self):
         """テーブルで選択中のフィーチャーを計画から削除する。"""
         if not self._plan_active or not self._active_plan_name:
             return
@@ -1172,7 +1172,7 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         'round(数値[, 桁])  四捨五入（桁は省略可）\n\n'
         '集計関数（全行対象）:\n'
         '  count() / sum("COL") / unique("COL")\n\n'
-        '例: "林班" || \'林班\' || "準林班名" || \'-\' || "小班_親番"'
+        '例: "名称" || \' - \' || "種別" || \'  (\' || count() || \'件)\''
     )
 
     def _get_status_exprs(self):

@@ -147,7 +147,7 @@
           </layout>
          </item>
          <item>
-          <widget class="QLabel" name="lblKey1Count">
+          <widget class="QLabel" name="lblFeatureCount">
            <property name="text">
             <string>フィーチャー数: -</string>
            </property>
@@ -179,7 +179,7 @@
             </widget>
            </item>
            <item row="1" column="0">
-            <widget class="QPushButton" name="btnPlanAddShouban">
+            <widget class="QPushButton" name="btnPlanAddFeature">
              <property name="text">
               <string>フィーチャーの追加</string>
              </property>
@@ -189,7 +189,7 @@
             </widget>
            </item>
            <item row="1" column="1">
-            <widget class="QPushButton" name="btnPlanDeleteShouban">
+            <widget class="QPushButton" name="btnPlanDeleteFeature">
              <property name="text">
               <string>フィーチャーの削除</string>
              </property>
@@ -316,7 +316,7 @@
          <property name="rightMargin"><number>6</number></property>
          <property name="bottomMargin"><number>4</number></property>
          <item row="0" column="0">
-          <widget class="QLabel" name="lblKey1">
+          <widget class="QLabel" name="lblKeyFullscreen">
            <property name="text"><string>Ctrl+F</string></property>
            <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
           </widget>
