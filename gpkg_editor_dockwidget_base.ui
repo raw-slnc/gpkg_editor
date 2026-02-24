@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>GpkgEditorWindowBase</class>
- <widget class="QDialog" name="GpkgEditorWindowBase">
+ <widget class="QWidget" name="GpkgEditorWindowBase">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -303,112 +303,108 @@
         </layout>
        </widget>
       </item>
-      <!-- ショートカットセクション -->
+      <!-- ショートカットセクション（アコーディオン） -->
       <item>
-       <widget class="QGroupBox" name="groupShortcuts">
-        <property name="title">
-         <string>ショートカット</string>
-        </property>
-        <layout class="QGridLayout" name="shortcutsGrid">
-         <property name="spacing"><number>2</number></property>
-         <property name="leftMargin"><number>6</number></property>
-         <property name="topMargin"><number>4</number></property>
-         <property name="rightMargin"><number>6</number></property>
-         <property name="bottomMargin"><number>4</number></property>
-         <item row="0" column="0">
-          <widget class="QLabel" name="lblKeyFullscreen">
-           <property name="text"><string>Ctrl+F</string></property>
-           <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+       <widget class="QWidget" name="shortcutsSection">
+        <layout class="QVBoxLayout" name="shortcutsSectionLayout">
+         <property name="spacing"><number>0</number></property>
+         <property name="leftMargin"><number>0</number></property>
+         <property name="topMargin"><number>0</number></property>
+         <property name="rightMargin"><number>0</number></property>
+         <property name="bottomMargin"><number>0</number></property>
+         <item>
+          <widget class="QPushButton" name="btnShortcutsToggle">
+           <property name="text"><string>▶ ショートカット</string></property>
+           <property name="flat"><bool>true</bool></property>
+           <property name="checkable"><bool>true</bool></property>
+           <property name="checked"><bool>false</bool></property>
+           <property name="styleSheet">
+            <string>QPushButton{text-align:left;padding:3px 6px;font-size:11px;border:none;border-bottom:1px solid #ccc;background:transparent;}QPushButton:hover{background:#f0f0f0;}</string>
+           </property>
           </widget>
          </item>
-         <item row="0" column="1">
-          <widget class="QLabel" name="lblDesc1">
-           <property name="text"><string>全画面切替</string></property>
-           <property name="styleSheet"><string>font-size: 11px;</string></property>
-          </widget>
-         </item>
-         <item row="1" column="0">
-          <widget class="QLabel" name="lblKey2">
-           <property name="text"><string>Ctrl+S</string></property>
-           <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
-          </widget>
-         </item>
-         <item row="1" column="1">
-          <widget class="QLabel" name="lblDesc2">
-           <property name="text"><string>計画を保存</string></property>
-           <property name="styleSheet"><string>font-size: 11px;</string></property>
-          </widget>
-         </item>
-         <item row="2" column="0">
-          <widget class="QLabel" name="lblKey3">
-           <property name="text"><string>Ctrl+C</string></property>
-           <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
-          </widget>
-         </item>
-         <item row="2" column="1">
-          <widget class="QLabel" name="lblDesc3">
-           <property name="text"><string>セルをコピー（タブ区切り）</string></property>
-           <property name="styleSheet"><string>font-size: 11px;</string></property>
-          </widget>
-         </item>
-         <item row="3" column="0">
-          <widget class="QLabel" name="lblKey4">
-           <property name="text"><string>Ctrl+V</string></property>
-           <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
-          </widget>
-         </item>
-         <item row="3" column="1">
-          <widget class="QLabel" name="lblDesc4">
-           <property name="text"><string>クリップボードから貼り付け</string></property>
-           <property name="styleSheet"><string>font-size: 11px;</string></property>
-          </widget>
-         </item>
-         <item row="4" column="0">
-          <widget class="QLabel" name="lblKey5">
-           <property name="text"><string>Shift+Scroll</string></property>
-           <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
-          </widget>
-         </item>
-         <item row="4" column="1">
-          <widget class="QLabel" name="lblDesc5">
-           <property name="text"><string>横スクロール</string></property>
-           <property name="styleSheet"><string>font-size: 11px;</string></property>
-          </widget>
-         </item>
-         <item row="5" column="0">
-          <widget class="QLabel" name="lblKey6">
-           <property name="text"><string>Ctrl+Arrow</string></property>
-           <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
-          </widget>
-         </item>
-         <item row="5" column="1">
-          <widget class="QLabel" name="lblDesc6">
-           <property name="text"><string>末端セルへ移動</string></property>
-           <property name="styleSheet"><string>font-size: 11px;</string></property>
-          </widget>
-         </item>
-         <item row="6" column="0">
-          <widget class="QLabel" name="lblKey7">
-           <property name="text"><string>Ctrl+Shift+Arrow</string></property>
-           <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
-          </widget>
-         </item>
-         <item row="6" column="1">
-          <widget class="QLabel" name="lblDesc7">
-           <property name="text"><string>末端セルまで選択</string></property>
-           <property name="styleSheet"><string>font-size: 11px;</string></property>
-          </widget>
-         </item>
-         <item row="7" column="0">
-          <widget class="QLabel" name="lblKey8">
-           <property name="text"><string>Enter</string></property>
-           <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
-          </widget>
-         </item>
-         <item row="7" column="1">
-          <widget class="QLabel" name="lblDesc8">
-           <property name="text"><string>セル編集モード切替</string></property>
-           <property name="styleSheet"><string>font-size: 11px;</string></property>
+         <item>
+          <widget class="QWidget" name="shortcutsContent">
+           <property name="visible"><bool>false</bool></property>
+           <layout class="QGridLayout" name="shortcutsGrid">
+            <property name="spacing"><number>2</number></property>
+            <property name="leftMargin"><number>6</number></property>
+            <property name="topMargin"><number>4</number></property>
+            <property name="rightMargin"><number>6</number></property>
+            <property name="bottomMargin"><number>4</number></property>
+            <item row="0" column="0">
+             <widget class="QLabel" name="lblKey2">
+              <property name="text"><string>Ctrl+C</string></property>
+              <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLabel" name="lblDesc2">
+              <property name="text"><string>セルをコピー（タブ区切り）</string></property>
+              <property name="styleSheet"><string>font-size: 11px;</string></property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="lblKey3">
+              <property name="text"><string>Ctrl+V</string></property>
+              <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QLabel" name="lblDesc3">
+              <property name="text"><string>クリップボードから貼り付け</string></property>
+              <property name="styleSheet"><string>font-size: 11px;</string></property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="lblKey4">
+              <property name="text"><string>Shift+Scroll</string></property>
+              <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QLabel" name="lblDesc4">
+              <property name="text"><string>横スクロール</string></property>
+              <property name="styleSheet"><string>font-size: 11px;</string></property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="lblKey5">
+              <property name="text"><string>Ctrl+Arrow</string></property>
+              <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="QLabel" name="lblDesc5">
+              <property name="text"><string>末端セルへ移動</string></property>
+              <property name="styleSheet"><string>font-size: 11px;</string></property>
+             </widget>
+            </item>
+            <item row="4" column="0">
+             <widget class="QLabel" name="lblKey6">
+              <property name="text"><string>Ctrl+Shift+Arrow</string></property>
+              <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+             </widget>
+            </item>
+            <item row="4" column="1">
+             <widget class="QLabel" name="lblDesc6">
+              <property name="text"><string>末端セルまで選択</string></property>
+              <property name="styleSheet"><string>font-size: 11px;</string></property>
+             </widget>
+            </item>
+            <item row="5" column="0">
+             <widget class="QLabel" name="lblKey7">
+              <property name="text"><string>Enter</string></property>
+              <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+             </widget>
+            </item>
+            <item row="5" column="1">
+             <widget class="QLabel" name="lblDesc7">
+              <property name="text"><string>セル編集モード切替</string></property>
+              <property name="styleSheet"><string>font-size: 11px;</string></property>
+             </widget>
+            </item>
+           </layout>
           </widget>
          </item>
         </layout>
@@ -487,9 +483,23 @@
           </spacer>
          </item>
          <item>
+          <widget class="QCheckBox" name="chkPanelClose">
+           <property name="text">
+            <string>パネルを閉じる</string>
+           </property>
+          </widget>
+         </item>
+         <item>
           <widget class="QCheckBox" name="chkShowAll">
            <property name="text">
-            <string>全体表示</string>
+            <string>フィーチャー全件を描画</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="chkFullscreen">
+           <property name="text">
+            <string>全画面表示</string>
            </property>
           </widget>
          </item>

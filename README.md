@@ -47,8 +47,6 @@ Aggregate functions (applied to all rows):
 
 | Shortcut | Action |
 |----------|--------|
-| Ctrl+F | Toggle fullscreen |
-| Ctrl+S | Save current plan |
 | Ctrl+C | Copy selected cells (tab-separated) |
 | Ctrl+V | Paste clipboard to selected cells |
 | Shift+Scroll | Horizontal scroll |

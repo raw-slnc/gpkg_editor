@@ -2,7 +2,8 @@
 import os
 
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt.QtWidgets import QAction, QDockWidget
+from qgis.PyQt.QtCore import Qt
 
 
 class GpkgEditor:
@@ -13,6 +14,7 @@ class GpkgEditor:
         self.plugin_dir = os.path.dirname(__file__)
         self.actions = []
         self.menu = 'GPKG Editor'
+        self.dock = None
         self.window = None
 
     def initGui(self):
@@ -33,28 +35,31 @@ class GpkgEditor:
             self.iface.removePluginVectorMenu(self.menu, action)
             self.iface.removeVectorToolBarIcon(action)
 
-        if self.window:
-            self.window.cleanup()
-            self.window.close()
-            self.window.deleteLater()
+        if self.dock:
+            if self.window:
+                self.window.cleanup()
+            self.iface.removeDockWidget(self.dock)
+            self.dock.deleteLater()
+            self.dock = None
             self.window = None
 
     def run(self):
-        """プラグインを実行する。ウィンドウを表示する。"""
-        if self.window is None:
+        """プラグインを実行する。ドックを表示する。"""
+        if self.dock is None:
             from .gpkg_editor_dockwidget import GpkgEditorWindow
-            self.window = GpkgEditorWindow(self.iface, self.iface.mainWindow())
-            # メインウィンドウが表示されているモニターの左上に配置
-            main_win = self.iface.mainWindow()
-            screen = main_win.screen() if main_win else None
-            if screen:
-                geo = screen.availableGeometry()
-                self.window.move(geo.topLeft())
+            self.window = GpkgEditorWindow(self.iface)
+            self.dock = QDockWidget('GPKG Editor', self.iface.mainWindow())
+            self.dock.setObjectName('GpkgEditorDock')
+            self.dock.setWidget(self.window)
+            self.dock.setAllowedAreas(
+                Qt.BottomDockWidgetArea | Qt.TopDockWidgetArea
+            )
+            self.iface.addDockWidget(Qt.BottomDockWidgetArea, self.dock)
 
-        if self.window.isVisible():
-            self.window.raise_()
-            self.window.activateWindow()
+        if self.dock.isVisible():
+            self.dock.raise_()
         else:
-            self.window.show()
-            self.window.raise_()
-            self.window.activateWindow()
+            self.dock.show()
+            self.dock.raise_()
+
+

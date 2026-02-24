@@ -13,14 +13,15 @@ from qgis.PyQt.QtWidgets import (
     QLabel,
     QPlainTextEdit,
     QPushButton,
+    QSplitter,
     QTableWidgetItem,
     QMessageBox,
     QHeaderView,
-    QAction,
     QVBoxLayout,
+    QWidget,
 )
-from qgis.PyQt.QtCore import Qt, QEvent, QItemSelection, QItemSelectionModel
-from qgis.PyQt.QtGui import QColor, QBrush, QKeySequence
+from qgis.PyQt.QtCore import Qt, QEvent, QItemSelection, QItemSelectionModel, QTimer
+from qgis.PyQt.QtGui import QColor, QBrush
 from qgis.core import (
     QgsProject,
     QgsFeatureRequest,
@@ -51,16 +52,33 @@ COLOR_EDITABLE = QBrush(QColor(0, 0, 255))   # 青: 編集可能（未編集）
 COLOR_EDITED = QBrush(QColor(255, 0, 0))      # 赤: 編集済み
 
 
-class GpkgEditorWindow(QDialog, FORM_CLASS):
+class GpkgEditorWindow(QWidget, FORM_CLASS):
     """GPKG編集用ウィンドウ。"""
 
     def __init__(self, iface, parent=None):
         super().__init__(parent)
-        # Alt+Tabで独立ウィンドウとして表示されるようにする
-        self.setWindowFlags(
-            Qt.Window | Qt.WindowCloseButtonHint | Qt.WindowMinMaxButtonsHint
-        )
         self.setupUi(self)
+
+        # 左パネル/右パネルをQSplitterに収める
+        self._splitter = QSplitter(Qt.Horizontal, self)
+        self.mainLayout.removeWidget(self.leftPanel)
+        self.mainLayout.removeWidget(self.rightPanel)
+        self._splitter.addWidget(self.leftPanel)
+        self._splitter.addWidget(self.rightPanel)
+        self._splitter.setSizes([380, 820])
+        self._splitter.setChildrenCollapsible(True)
+        self._splitter.setHandleWidth(0)
+        self._splitter.splitterMoved.connect(self._on_splitter_moved)
+        self.mainLayout.addWidget(self._splitter)
+
+        # 左パネル開閉チェックボックス
+        self.chkPanelClose.toggled.connect(self._on_panel_close_toggled)
+
+        # ショートカットアコーディオン
+        self.btnShortcutsToggle.toggled.connect(self._toggle_shortcuts)
+        # 描画完了後に初期状態（閉じ）の高さ制約を適用
+        QTimer.singleShot(0, self._apply_shortcuts_closed_height)
+
         self.iface = iface
         self.data_manager = GpkgDataManager()
         self.column_config = {}
@@ -90,6 +108,7 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         self.btnLock.toggled.connect(self._on_lock_toggled)
         self.chkOverwrite.toggled.connect(self._on_overwrite_toggled)
         self.chkShowAll.toggled.connect(self._on_show_all_toggled)
+        self.chkFullscreen.toggled.connect(self._on_fullscreen_toggled)
         self.btnPlanSave.clicked.connect(self._on_plan_save)
         self.btnPlanDelete.clicked.connect(self._on_plan_delete)
         self.btnPlanAddFeature.clicked.connect(self._on_plan_add_feature)
@@ -125,21 +144,7 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         self.iface.currentLayerChanged.connect(self._on_non_selection_action)
         self.iface.mapCanvas().mapToolSet.connect(self._on_non_selection_action)
 
-        # Ctrl+F → 全画面トグル（QAction + WindowShortcut で確実に動作）
-        fullscreen_action = QAction(self)
-        fullscreen_action.setShortcut(QKeySequence('Ctrl+F'))
-        fullscreen_action.setShortcutContext(Qt.WindowShortcut)
-        fullscreen_action.triggered.connect(self._toggle_fullscreen)
-        self.addAction(fullscreen_action)
-
-        # Ctrl+S → 計画保存
-        save_action = QAction(self)
-        save_action.setShortcut(QKeySequence('Ctrl+S'))
-        save_action.setShortcutContext(Qt.WindowShortcut)
-        save_action.triggered.connect(self._on_plan_save)
-        self.addAction(save_action)
-
-        # Ctrl+Shift+スクロール→横スクロール（eventFilter）
+        # Shift+スクロール→横スクロール（eventFilter）
         self.tableFeatures.viewport().installEventFilter(self)
 
         # Enter→編集開始/確定トグル
@@ -264,11 +269,6 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         """選択以外の操作が行われたら補完コンテキストを無効化する。"""
         self._cancel_click_context()
 
-    def closeEvent(self, event):
-        """ウィンドウを閉じる時は非表示にするだけで破棄しない。"""
-        event.ignore()
-        self.hide()
-
     def cleanup(self):
         """プラグイン終了時のリソース解放。unload から呼ばれる。"""
         self._clear_rubber_bands()
@@ -287,14 +287,49 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
         self.data_manager.close()
 
     # ──────────────────────────────────────────────
-    # ショートカット: ウィンドウ操作
+    # 左パネル開閉
     # ──────────────────────────────────────────────
 
-    def _toggle_fullscreen(self):
-        if self.isFullScreen():
-            self.showNormal()
+    def _on_splitter_moved(self, pos, index):
+        """スプリッターのドラッグ操作を禁止して固定位置に戻す。"""
+        sizes = self._splitter.sizes()
+        total = sum(sizes)
+        if sizes[0] > 0:
+            # 左パネルが開いている場合は幅を 380 に固定
+            self._splitter.setSizes([380, max(0, total - 380)])
         else:
-            self.showFullScreen()
+            # 左パネルが閉じている場合はそのまま維持
+            self._splitter.setSizes([0, total])
+
+    def _on_panel_close_toggled(self, checked):
+        sizes = self._splitter.sizes()
+        if checked:
+            self._splitter.setSizes([0, sum(sizes)])
+        else:
+            self._splitter.setSizes([380, max(0, sizes[1] - 380)])
+
+    def _apply_shortcuts_closed_height(self):
+        """初期・閉じ時: shortcutsSection をボタン1行分に制限し dock を縮小。
+        dock 縮小はフロート時には行わない（表示崩れの原因になるため）。
+        """
+        h = self.btnShortcutsToggle.height()
+        self.shortcutsSection.setMaximumHeight(h if h > 0 else 28)
+        dock = self.parentWidget()
+        # isFloating() を持つ（QDockWidget）かつ格納中のときのみ高さを強制縮小
+        if dock and not getattr(dock, 'isFloating', lambda: True)():
+            target = self.rightPanel.sizeHint().height()
+            dock.setMaximumHeight(target)
+            QTimer.singleShot(100, lambda: dock.setMaximumHeight(16777215))
+
+    def _toggle_shortcuts(self, checked):
+        self.shortcutsContent.setVisible(checked)
+        self.btnShortcutsToggle.setText(
+            '▼ ショートカット' if checked else '▶ ショートカット'
+        )
+        if checked:
+            self.shortcutsSection.setMaximumHeight(16777215)
+        else:
+            QTimer.singleShot(0, self._apply_shortcuts_closed_height)
 
     # ──────────────────────────────────────────────
     # GPKGレイヤー コンボボックス
@@ -426,17 +461,19 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
             fill = QColor(0, 0, 0, 0)
             width = 1.3
 
+        # 最適化: レイヤーのジオメトリタイプに合わせて1つのラバーバンドを作成
+        layer = self.data_manager.original_layer
+        rb = QgsRubberBand(self.iface.mapCanvas(), layer.geometryType())
+        rb.setStrokeColor(stroke)
+        rb.setFillColor(fill)
+        rb.setWidth(width)
+
         request = QgsFeatureRequest().setFilterFids(fids)
-        for feat in self.data_manager.original_layer.getFeatures(request):
+        for feat in layer.getFeatures(request):
             if feat.geometry().isNull():
                 continue
-            geom_type = feat.geometry().type()
-            rb = QgsRubberBand(self.iface.mapCanvas(), geom_type)
-            rb.setStrokeColor(stroke)
-            rb.setFillColor(fill)
-            rb.setWidth(width)
-            rb.setToGeometry(feat.geometry(), self.data_manager.original_layer)
-            self._rubber_bands.append(rb)
+            rb.addGeometry(feat.geometry(), layer)
+        self._rubber_bands.append(rb)
 
     def _clear_rubber_bands(self):
         for rb in self._rubber_bands:
@@ -456,17 +493,20 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
             return
         if not self._current_fids or not self.data_manager.original_layer:
             return
+
+        # 最適化: 全体表示用も1つのラバーバンドにまとめる
+        layer = self.data_manager.original_layer
+        rb = QgsRubberBand(self.iface.mapCanvas(), layer.geometryType())
+        rb.setStrokeColor(QColor(255, 0, 0, 120))
+        rb.setFillColor(QColor(0, 0, 0, 0))
+        rb.setWidth(1.0)
+
         request = QgsFeatureRequest().setFilterFids(self._current_fids)
-        for feat in self.data_manager.original_layer.getFeatures(request):
+        for feat in layer.getFeatures(request):
             if feat.geometry().isNull():
                 continue
-            geom_type = feat.geometry().type()
-            rb = QgsRubberBand(self.iface.mapCanvas(), geom_type)
-            rb.setStrokeColor(QColor(255, 0, 0, 120))
-            rb.setFillColor(QColor(0, 0, 0, 0))
-            rb.setWidth(1.0)
-            rb.setToGeometry(feat.geometry(), self.data_manager.original_layer)
-            self._rubber_bands_base.append(rb)
+            rb.addGeometry(feat.geometry(), layer)
+        self._rubber_bands_base.append(rb)
 
     def _on_show_all_toggled(self, checked):
         """全体表示チェックの切り替え処理。"""
@@ -479,6 +519,20 @@ class GpkgEditorWindow(QDialog, FORM_CLASS):
                 self._highlight_features(fids)
             else:
                 self._clear_rubber_bands()
+
+    def _on_fullscreen_toggled(self, checked):
+        """全画面表示チェックの切り替え処理。フロート中のみ有効。"""
+        dock = self.parentWidget()
+        if not dock or not getattr(dock, 'isFloating', lambda: False)():
+            self.chkFullscreen.blockSignals(True)
+            self.chkFullscreen.setChecked(False)
+            self.chkFullscreen.blockSignals(False)
+            return
+        win = dock.window()
+        if checked:
+            win.showMaximized()
+        else:
+            win.showNormal()
 
     def _on_table_row_changed(self, current, _previous):
         """ロック中または計画アクティブ時：テーブル行選択→マップ中心移動。
