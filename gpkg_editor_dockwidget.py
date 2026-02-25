@@ -8,7 +8,6 @@ from qgis.PyQt.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFileDialog,
-    QInputDialog,
     QHBoxLayout,
     QLabel,
     QPlainTextEdit,
@@ -193,15 +192,16 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                     self._paste_to_selected_cells()
                     return True
 
-        # Ctrl+Shift+矢印キー → 現在セルから押下方向の端まで範囲選択
+        # Ctrl+(Shift+)矢印キー → 端セルへ移動または範囲選択
         if obj == self.tableFeatures and event.type() == QEvent.KeyPress:
-            if (event.modifiers() == (Qt.ControlModifier | Qt.ShiftModifier)
-                    and event.key() in (Qt.Key_Up, Qt.Key_Down, Qt.Key_Left, Qt.Key_Right)
+            mods = event.modifiers()
+            key = event.key()
+            if (mods in (Qt.ControlModifier, Qt.ControlModifier | Qt.ShiftModifier)
+                    and key in (Qt.Key_Up, Qt.Key_Down, Qt.Key_Left, Qt.Key_Right)
                     and self.tableFeatures.state() != self.tableFeatures.EditingState):
                 current = self.tableFeatures.currentIndex()
                 if current.isValid():
                     row, col = current.row(), current.column()
-                    key = event.key()
                     if key == Qt.Key_Up:
                         target_row, target_col = 0, col
                     elif key == Qt.Key_Down:
@@ -210,31 +210,14 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                         target_row, target_col = row, 0
                     else:  # Key_Right
                         target_row, target_col = row, self.tableFeatures.columnCount() - 1
-                    target = self.tableFeatures.model().index(target_row, target_col)
-                    sel = QItemSelection(current, target)
-                    self.tableFeatures.selectionModel().select(
-                        sel, QItemSelectionModel.ClearAndSelect
-                    )
-                    return True
-
-        # Ctrl+矢印キー → 押下方向の端セルへ移動
-        if obj == self.tableFeatures and event.type() == QEvent.KeyPress:
-            if (event.modifiers() == Qt.ControlModifier
-                    and event.key() in (Qt.Key_Up, Qt.Key_Down, Qt.Key_Left, Qt.Key_Right)
-                    and self.tableFeatures.state() != self.tableFeatures.EditingState):
-                current = self.tableFeatures.currentIndex()
-                if current.isValid():
-                    row, col = current.row(), current.column()
-                    key = event.key()
-                    if key == Qt.Key_Up:
-                        target_row, target_col = 0, col
-                    elif key == Qt.Key_Down:
-                        target_row, target_col = self.tableFeatures.rowCount() - 1, col
-                    elif key == Qt.Key_Left:
-                        target_row, target_col = row, 0
-                    else:  # Key_Right
-                        target_row, target_col = row, self.tableFeatures.columnCount() - 1
-                    self.tableFeatures.setCurrentCell(target_row, target_col)
+                    if mods == (Qt.ControlModifier | Qt.ShiftModifier):
+                        target = self.tableFeatures.model().index(target_row, target_col)
+                        sel = QItemSelection(current, target)
+                        self.tableFeatures.selectionModel().select(
+                            sel, QItemSelectionModel.ClearAndSelect
+                        )
+                    else:
+                        self.tableFeatures.setCurrentCell(target_row, target_col)
                     return True
 
         # Enter キー → 編集開始/確定トグル
@@ -1085,19 +1068,8 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self.lblStatus.setText('フィーチャーの追加をキャンセルしました')
             return
 
-        # 追加対象のfidを取得
-        if self._is_same_source(active_layer):
-            new_fids = [f.id() for f in selected]
-        else:
-            combined_geom = QgsGeometry()
-            for feat in selected:
-                if combined_geom.isNull():
-                    combined_geom = QgsGeometry(feat.geometry())
-                else:
-                    combined_geom = combined_geom.combine(feat.geometry())
-            if combined_geom.isNull():
-                return
-            new_fids = self.data_manager.get_intersecting_fids(combined_geom)
+        # 追加対象のfidを取得（_get_add_mode_layer は同一ソースのみ返す）
+        new_fids = [f.id() for f in selected]
 
         if not new_fids:
             QMessageBox.information(self, '追加', '追加対象のフィーチャーがありません。')

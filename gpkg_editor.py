@@ -61,5 +61,3 @@ class GpkgEditor:
         else:
             self.dock.show()
             self.dock.raise_()
-
-
