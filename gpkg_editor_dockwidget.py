@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import os
-import time
 
 from qgis.PyQt import uic
 from qgis.PyQt.QtWidgets import (
@@ -23,10 +22,10 @@ from qgis.PyQt.QtCore import Qt, QEvent, QItemSelection, QItemSelectionModel, QT
 from qgis.PyQt.QtGui import QColor, QBrush
 from qgis.core import (
     QgsProject,
+    QgsCoordinateTransform,
     QgsFeatureRequest,
     QgsGeometry,
     QgsRectangle,
-    QgsCoordinateTransform,
     QgsVectorLayer,
     QgsWkbTypes,
 )
@@ -92,10 +91,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._status_expr2 = ''
         self._current_merged_data = []
         self._feature_add_mode = False  # フィーチャー追加フロー中かどうか
-        self._canvas_press_pos = None
-        self._last_canvas_click_point = None
-        self._last_canvas_click_time = 0.0
-        self._last_canvas_click_layer_id = None
         # GPKGレイヤー一覧を初期化
         self._refresh_layer_combo()
 
@@ -140,9 +135,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         # マップ選択変更の監視
         self.iface.mapCanvas().selectionChanged.connect(self._on_selection_changed)
         self.iface.mapCanvas().viewport().installEventFilter(self)
-        self.iface.currentLayerChanged.connect(self._on_non_selection_action)
-        self.iface.mapCanvas().mapToolSet.connect(self._on_non_selection_action)
-
         # Shift+スクロール→横スクロール（eventFilter）
         self.tableFeatures.viewport().installEventFilter(self)
 
@@ -150,28 +142,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.tableFeatures.installEventFilter(self)
 
     def eventFilter(self, obj, event):
-        # マップキャンバスのクリック位置を記録（重なりフィーチャー判定用）
-        if obj == self.iface.mapCanvas().viewport():
-            if event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
-                self._canvas_press_pos = event.pos()
-            elif event.type() == QEvent.MouseButtonRelease and event.button() == Qt.LeftButton:
-                if self._canvas_press_pos is not None:
-                    delta = event.pos() - self._canvas_press_pos
-                    if abs(delta.x()) + abs(delta.y()) <= 3:
-                        map_point = (
-                            self.iface.mapCanvas()
-                            .mapSettings()
-                            .mapToPixel()
-                            .toMapCoordinates(event.pos())
-                        )
-                        self._last_canvas_click_point = map_point
-                        self._last_canvas_click_time = time.time()
-                        active = self.iface.activeLayer()
-                        self._last_canvas_click_layer_id = active.id() if active else None
-                self._canvas_press_pos = None
-            elif event.type() == QEvent.MouseButtonPress and event.button() == Qt.RightButton:
-                self._cancel_click_context()
-
         # Shift+ホイール → 横スクロール
         if obj == self.tableFeatures.viewport() and event.type() == QEvent.Wheel:
             if event.modifiers() == Qt.ShiftModifier:
@@ -240,17 +210,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                 return False
 
         return super().eventFilter(obj, event)
-
-    def _cancel_click_context(self):
-        """クリック補完用の記録をクリアする。"""
-        self._canvas_press_pos = None
-        self._last_canvas_click_point = None
-        self._last_canvas_click_time = 0.0
-        self._last_canvas_click_layer_id = None
-
-    def _on_non_selection_action(self, *_args):
-        """選択以外の操作が行われたら補完コンテキストを無効化する。"""
-        self._cancel_click_context()
 
     def cleanup(self):
         """プラグイン終了時のリソース解放。unload から呼ばれる。"""
@@ -543,18 +502,32 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         if not selected_fids:
             return
 
+        layer = self.data_manager.original_layer
+        canvas = self.iface.mapCanvas()
+        canvas_crs = canvas.mapSettings().destinationCrs()
+        layer_crs = layer.crs()
+        need_transform = (
+            layer_crs.isValid() and canvas_crs.isValid() and layer_crs != canvas_crs
+        )
+
+        def to_canvas_crs(point):
+            if need_transform:
+                t = QgsCoordinateTransform(layer_crs, canvas_crs, QgsProject.instance())
+                return t.transform(point)
+            return point
+
         if len(selected_fids) == 1:
             request = QgsFeatureRequest().setFilterFids(selected_fids)
-            feat = next(self.data_manager.original_layer.getFeatures(request), None)
+            feat = next(layer.getFeatures(request), None)
             if feat and not feat.geometry().isNull():
-                center = feat.geometry().centroid().asPoint()
-                self.iface.mapCanvas().setCenter(center)
-                self.iface.mapCanvas().refresh()
+                center = to_canvas_crs(feat.geometry().boundingBox().center())
+                canvas.setCenter(center)
+                canvas.refresh()
         else:
             # 複数選択: 全フィーチャーの合算バウンディングボックス中心へ移動
             combined_extent = None
             request = QgsFeatureRequest().setFilterFids(selected_fids)
-            for feat in self.data_manager.original_layer.getFeatures(request):
+            for feat in layer.getFeatures(request):
                 if feat.geometry().isNull():
                     continue
                 bbox = feat.geometry().boundingBox()
@@ -563,8 +536,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                 else:
                     combined_extent.combineExtentWith(bbox)
             if combined_extent and not combined_extent.isEmpty():
-                self.iface.mapCanvas().setCenter(combined_extent.center())
-                self.iface.mapCanvas().refresh()
+                center = to_canvas_crs(combined_extent.center())
+                canvas.setCenter(center)
+                canvas.refresh()
 
     def _on_table_selection_changed(self, selected, deselected):
         """テーブルの選択変更時：選択された全フィーチャーを強調表示。"""
@@ -707,7 +681,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             return
 
         selected = active_layer.selectedFeatures()
-        selected = self._get_effective_selection(active_layer, selected)
         if not selected:
             self._clear_table()
             self.lblStatus.setText('地物が選択されていません')
@@ -739,66 +712,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._current_fids = fids
         self._update_table(fids)
         self.lblStatus.setText(f'{len(fids)} 件のフィーチャーが見つかりました')
-
-    def _get_effective_selection(self, layer, selected):
-        """クリック選択時のみ、重なりフィーチャーを補完する。"""
-        if not selected or len(selected) != 1:
-            return selected
-        if not self._last_canvas_click_point:
-            return selected
-        if not self._feature_add_mode:
-            if time.time() - self._last_canvas_click_time > 5.0:
-                return selected
-        if self._last_canvas_click_layer_id and layer:
-            if layer.id() != self._last_canvas_click_layer_id:
-                return selected
-
-        click_features = self._get_features_at_canvas_point(
-            layer, self._last_canvas_click_point
-        )
-        return click_features or selected
-
-    def _get_features_at_canvas_point(self, layer, point):
-        """クリック点周辺の全フィーチャーを取得する。"""
-        if not layer or point is None:
-            return []
-
-        canvas = self.iface.mapCanvas()
-        canvas_crs = canvas.mapSettings().destinationCrs()
-        layer_crs = layer.crs()
-        if canvas_crs.isValid() and layer_crs.isValid() and canvas_crs != layer_crs:
-            transform = QgsCoordinateTransform(
-                canvas_crs, layer_crs, QgsProject.instance()
-            )
-            search_point = transform.transform(point)
-        else:
-            search_point = point
-
-        map_units_per_pixel = canvas.mapUnitsPerPixel()
-        tolerance = map_units_per_pixel * 10
-        if canvas_crs.isValid() and layer_crs.isValid() and canvas_crs != layer_crs:
-            layer_extent = layer.extent()
-            if layer_extent.width() > 0 and canvas.extent().width() > 0:
-                scale_ratio = layer_extent.width() / canvas.extent().width()
-                tolerance = tolerance * scale_ratio
-
-        search_rect = QgsRectangle(
-            search_point.x() - tolerance, search_point.y() - tolerance,
-            search_point.x() + tolerance, search_point.y() + tolerance
-        )
-
-        request = QgsFeatureRequest().setFilterRect(search_rect)
-        search_geom = QgsGeometry.fromPointXY(search_point)
-        features = []
-
-        for feat in layer.getFeatures(request):
-            geom = feat.geometry()
-            if geom.isNull():
-                continue
-            if geom.intersects(search_geom) or geom.distance(search_geom) <= tolerance:
-                features.append(feat)
-
-        return features
 
     # ──────────────────────────────────────────────
     # テーブル表示
@@ -1066,7 +979,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             return
 
         selected = active_layer.selectedFeatures()
-        selected = self._get_effective_selection(active_layer, selected)
         if not selected:
             self._feature_add_mode = False
             self.btnPlanAddFeature.setText('フィーチャーの追加')
