@@ -326,9 +326,14 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.cmbGpkgLayer.clear()
         self.cmbGpkgLayer.addItem('-- 選択してください --', None)
 
+        layer_tree = QgsProject.instance().layerTreeRoot()
         restore_idx = 0
         for layer in QgsProject.instance().mapLayers().values():
             if not isinstance(layer, QgsVectorLayer):
+                continue
+            # レイヤーツリー（パネル）に存在しないものは除外
+            # （他プラグインがレジストリ未削除のままツリーからだけ消した場合の対策）
+            if layer_tree.findLayer(layer.id()) is None:
                 continue
             src = layer.source().split('|')[0]
             if not src.lower().endswith('.gpkg'):
