@@ -2,6 +2,8 @@
 
 A QGIS plugin for viewing and editing GeoPackage (GPKG) layer attributes with plan management and export support.
 
+![Screenshot](use_gpkg_editor.png)
+
 ## Features
 
 - **Attribute table**: Select features on the map and view/edit their attributes in a table
