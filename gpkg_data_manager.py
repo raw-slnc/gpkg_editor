@@ -200,7 +200,7 @@ class GpkgDataManager:
             placeholders = ','.join('?' for _ in fids)
             rows = conn.execute(
                 f'SELECT orig_fid, col_name, value FROM edits '
-                f'WHERE orig_fid IN ({placeholders})',
+                f'WHERE orig_fid IN ({placeholders})',  # nosec B608
                 list(fids),
             ).fetchall()
             for orig_fid, col_name, value in rows:
@@ -355,7 +355,7 @@ class GpkgDataManager:
             placeholders = ','.join('?' for _ in fids)
             rows = conn.execute(
                 f'SELECT orig_fid, col_name, value FROM edits '
-                f'WHERE orig_fid IN ({placeholders})',
+                f'WHERE orig_fid IN ({placeholders})',  # nosec B608
                 list(fids),
             ).fetchall()
             for orig_fid, col_name, value in rows:
