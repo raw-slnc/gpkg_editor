@@ -64,3 +64,12 @@ Aggregate functions (applied to all rows):
 
 This plugin is distributed under the GNU General Public License v2 or later.
 See [LICENSE](LICENSE) for details.
+
+## Support
+
+If this plugin is helpful for your work, you can support the development here:
+https://paypal.me/rawslnc
+
+## Author
+
+(C) 2026 por Hideharu Masai
