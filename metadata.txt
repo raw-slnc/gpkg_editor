@@ -12,7 +12,7 @@ version=0.1.4
 author=Hideharu Masai
 email=hideharumasai@void.mints.ne.jp
 
-about=Load a GPKG layer and view/edit attributes of selected features in a table. Edits are stored separately ({name}_data.sqlite), preserving the original GPKG intact. Features include: named plan management (save/restore feature sets with column configurations), expression-based status display rows, feature add/remove from plans, and GPKG/CSV export with edits applied. / GPKGファイルを読み込み、マップ上で選択した地物の属性をテーブルで表示・編集します。編集データは別SQLiteファイルに保存されオリジナルGPKGを保護します。計画管理（フィーチャーセットとカラム設定の保存・復元）、式ベースのステータス表示行、GPKG/CSV出力機能を提供します。
+about=Load a GPKG layer and view/edit attributes of selected features in a table. Edits are stored separately ({name}_data.sqlite), preserving the original GPKG intact. Features include: named plan management (save/restore feature sets with column configurations), expression-based status display rows, feature add/remove from plans, and GPKG/CSV export with edits applied. / GPKGファイルを読み込み、マップ上で選択した地物の属性をテーブルで表示・編集します。編集データは別SQLiteファイルに保存されオリジナルGPKGを保護します。計画管理（フィーチャーセットとカラム設定の保存・復元）、式ベースのステータス表示行、GPKG/CSV出力機能を提供します。 / Support: https://paypal.me/rawslnc
 
 tracker=https://github.com/raw-slnc/gpkg_editor/issues
 repository=https://github.com/raw-slnc/gpkg_editor
