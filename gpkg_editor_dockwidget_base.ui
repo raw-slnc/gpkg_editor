@@ -81,7 +81,7 @@
             <string>GPKGレイヤーを選択してください</string>
            </property>
            <property name="styleSheet">
-            <string>color: #666666; font-size: 11px;</string>
+            <string notr="true">color: #666666; font-size: 11px;</string>
            </property>
           </widget>
          </item>
@@ -152,7 +152,7 @@
             <string>フィーチャー数: -</string>
            </property>
            <property name="styleSheet">
-            <string>color: #666666; font-size: 11px;</string>
+            <string notr="true">color: #666666; font-size: 11px;</string>
            </property>
           </widget>
          </item>
@@ -319,7 +319,7 @@
            <property name="checkable"><bool>true</bool></property>
            <property name="checked"><bool>false</bool></property>
            <property name="styleSheet">
-            <string>QPushButton{text-align:left;padding:3px 6px;font-size:11px;border:none;border-bottom:1px solid #ccc;background:transparent;}QPushButton:hover{background:#f0f0f0;}</string>
+            <string notr="true">QPushButton{text-align:left;padding:3px 6px;font-size:11px;border:none;border-bottom:1px solid #ccc;background:transparent;}QPushButton:hover{background:#f0f0f0;}</string>
            </property>
           </widget>
          </item>
@@ -335,73 +335,73 @@
             <item row="0" column="0">
              <widget class="QLabel" name="lblKey2">
               <property name="text"><string>Ctrl+C</string></property>
-              <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+              <property name="styleSheet"><string notr="true">font-size: 11px; font-family: monospace;</string></property>
              </widget>
             </item>
             <item row="0" column="1">
              <widget class="QLabel" name="lblDesc2">
               <property name="text"><string>セルをコピー（タブ区切り）</string></property>
-              <property name="styleSheet"><string>font-size: 11px;</string></property>
+              <property name="styleSheet"><string notr="true">font-size: 11px;</string></property>
              </widget>
             </item>
             <item row="1" column="0">
              <widget class="QLabel" name="lblKey3">
               <property name="text"><string>Ctrl+V</string></property>
-              <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+              <property name="styleSheet"><string notr="true">font-size: 11px; font-family: monospace;</string></property>
              </widget>
             </item>
             <item row="1" column="1">
              <widget class="QLabel" name="lblDesc3">
               <property name="text"><string>クリップボードから貼り付け</string></property>
-              <property name="styleSheet"><string>font-size: 11px;</string></property>
+              <property name="styleSheet"><string notr="true">font-size: 11px;</string></property>
              </widget>
             </item>
             <item row="2" column="0">
              <widget class="QLabel" name="lblKey4">
               <property name="text"><string>Shift+Scroll</string></property>
-              <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+              <property name="styleSheet"><string notr="true">font-size: 11px; font-family: monospace;</string></property>
              </widget>
             </item>
             <item row="2" column="1">
              <widget class="QLabel" name="lblDesc4">
               <property name="text"><string>横スクロール</string></property>
-              <property name="styleSheet"><string>font-size: 11px;</string></property>
+              <property name="styleSheet"><string notr="true">font-size: 11px;</string></property>
              </widget>
             </item>
             <item row="3" column="0">
              <widget class="QLabel" name="lblKey5">
               <property name="text"><string>Ctrl+Arrow</string></property>
-              <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+              <property name="styleSheet"><string notr="true">font-size: 11px; font-family: monospace;</string></property>
              </widget>
             </item>
             <item row="3" column="1">
              <widget class="QLabel" name="lblDesc5">
               <property name="text"><string>末端セルへ移動</string></property>
-              <property name="styleSheet"><string>font-size: 11px;</string></property>
+              <property name="styleSheet"><string notr="true">font-size: 11px;</string></property>
              </widget>
             </item>
             <item row="4" column="0">
              <widget class="QLabel" name="lblKey6">
               <property name="text"><string>Ctrl+Shift+Arrow</string></property>
-              <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+              <property name="styleSheet"><string notr="true">font-size: 11px; font-family: monospace;</string></property>
              </widget>
             </item>
             <item row="4" column="1">
              <widget class="QLabel" name="lblDesc6">
               <property name="text"><string>末端セルまで選択</string></property>
-              <property name="styleSheet"><string>font-size: 11px;</string></property>
+              <property name="styleSheet"><string notr="true">font-size: 11px;</string></property>
              </widget>
             </item>
             <item row="5" column="0">
              <widget class="QLabel" name="lblKey7">
               <property name="text"><string>Enter</string></property>
-              <property name="styleSheet"><string>font-size: 11px; font-family: monospace;</string></property>
+              <property name="styleSheet"><string notr="true">font-size: 11px; font-family: monospace;</string></property>
              </widget>
             </item>
             <item row="5" column="1">
              <widget class="QLabel" name="lblDesc7">
               <property name="text"><string>セル編集モード切替</string></property>
-              <property name="styleSheet"><string>font-size: 11px;</string></property>
+              <property name="styleSheet"><string notr="true">font-size: 11px;</string></property>
              </widget>
             </item>
            </layout>
@@ -453,7 +453,7 @@
               <string></string>
              </property>
              <property name="styleSheet">
-              <string>font-size: 12px;</string>
+              <string notr="true">font-size: 12px;</string>
              </property>
             </widget>
            </item>
@@ -463,7 +463,7 @@
               <string></string>
              </property>
              <property name="styleSheet">
-              <string>font-size: 12px;</string>
+              <string notr="true">font-size: 12px;</string>
              </property>
             </widget>
            </item>
@@ -528,19 +528,19 @@
         <item>
          <widget class="QLabel" name="lblLegendDisplay">
           <property name="text"><string>■ 表示のみ</string></property>
-          <property name="styleSheet"><string>color: #000000; font-size: 11px;</string></property>
+          <property name="styleSheet"><string notr="true">color: #000000; font-size: 11px;</string></property>
          </widget>
         </item>
         <item>
          <widget class="QLabel" name="lblLegendEditable">
           <property name="text"><string>■ 編集可能</string></property>
-          <property name="styleSheet"><string>color: #0066cc; font-size: 11px;</string></property>
+          <property name="styleSheet"><string notr="true">color: #0066cc; font-size: 11px;</string></property>
          </widget>
         </item>
         <item>
          <widget class="QLabel" name="lblLegendEdited">
           <property name="text"><string>■ 編集済み</string></property>
-          <property name="styleSheet"><string>color: #cc0000; font-size: 11px;</string></property>
+          <property name="styleSheet"><string notr="true">color: #cc0000; font-size: 11px;</string></property>
          </widget>
         </item>
         <item>
@@ -555,6 +555,13 @@
            </size>
           </property>
          </spacer>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btnLanguage">
+          <property name="text">
+           <string>言語</string>
+          </property>
+         </widget>
         </item>
        </layout>
       </item>

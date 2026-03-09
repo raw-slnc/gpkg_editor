@@ -23,12 +23,6 @@ COLUMN_EDITABLE = '表示＋編集'
 COLUMN_INFO = '情報'
 
 _STATES = [COLUMN_HIDDEN, COLUMN_DISPLAY, COLUMN_EDITABLE, COLUMN_INFO]
-_BTN_TEXT = {
-    COLUMN_HIDDEN: '非表示',
-    COLUMN_DISPLAY: '表示',
-    COLUMN_EDITABLE: '編集',
-    COLUMN_INFO: '情報',
-}
 _BTN_STYLE = {
     COLUMN_HIDDEN: 'QPushButton{background:#cccccc;color:#666666;border:1px solid #aaa;padding:2px 8px;}',
     COLUMN_DISPLAY: 'QPushButton{background:#4a90d9;color:white;border:1px solid #357abd;padding:2px 8px;}',
@@ -81,6 +75,23 @@ class ColumnConfigDialog(QDialog, FORM_CLASS):
         self.btnFilter.clicked.connect(self._cycle_filter)
 
         self._rebuild_grid()
+
+    def _button_texts(self):
+        return {
+            COLUMN_HIDDEN: self.tr('非表示'),
+            COLUMN_DISPLAY: self.tr('表示'),
+            COLUMN_EDITABLE: self.tr('編集'),
+            COLUMN_INFO: self.tr('情報'),
+        }
+
+    def _filter_labels(self):
+        return {
+            _FILTER_ALL: self.tr('全て'),
+            _FILTER_DISPLAY: self.tr('表示のみ'),
+            _FILTER_EDITABLE: self.tr('表示編集のみ'),
+            _FILTER_INFO: self.tr('情報のみ'),
+            _FILTER_HIDDEN: self.tr('選択無し'),
+        }
 
     def _get_filtered_columns(self):
         f = _FILTERS[self._current_filter_idx]
@@ -160,10 +171,12 @@ class ColumnConfigDialog(QDialog, FORM_CLASS):
         self.lblPage.setText(f'{self._current_page + 1}/{total_pages}')
         self.btnPrev.setEnabled(self._current_page > 0)
         self.btnNext.setEnabled(self._current_page < total_pages - 1)
-        self.btnFilter.setText(_FILTERS[self._current_filter_idx])
+        self.btnFilter.setText(
+            self._filter_labels()[_FILTERS[self._current_filter_idx]]
+        )
 
     def _apply_btn_state(self, btn, state):
-        btn.setText(_BTN_TEXT[state])
+        btn.setText(self._button_texts()[state])
         btn.setStyleSheet(_BTN_STYLE[state])
 
     def _cycle_state(self, col_name, btn):

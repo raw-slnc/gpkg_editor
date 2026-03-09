@@ -8,11 +8,18 @@
 name=GPKG Editor
 qgisMinimumVersion=3.16
 description=View and edit GeoPackage (GPKG) layer attributes with plan management and GPKG/CSV export.
-version=0.1.4
+description[en]=View and edit GeoPackage (GPKG) layer attributes with plan management and GPKG/CSV export.
+description[es]=Visualice y edite atributos de capas GeoPackage (GPKG) con gestión de planes y exportación GPKG/CSV.
+description[pt]=Visualize e edite atributos de camadas GeoPackage (GPKG) com gestão de planos e exportação GPKG/CSV.
+description[ja]=GeoPackage（GPKG）レイヤー属性の閲覧・編集、計画管理、GPKG/CSV出力を行います。
+version=0.1.5
 author=Hideharu Masai
 email=hideharumasai@void.mints.ne.jp
 
-about=Load a GPKG layer and view/edit attributes of selected features in a table. Edits are stored separately ({name}_data.sqlite), preserving the original GPKG intact. Features include: named plan management (save/restore feature sets with column configurations), expression-based status display rows, feature add/remove from plans, and GPKG/CSV export with edits applied. / GPKGファイルを読み込み、マップ上で選択した地物の属性をテーブルで表示・編集します。編集データは別SQLiteファイルに保存されオリジナルGPKGを保護します。計画管理（フィーチャーセットとカラム設定の保存・復元）、式ベースのステータス表示行、GPKG/CSV出力機能を提供します。 / Support: https://paypal.me/rawslnc
+about=Load a GPKG layer and view/edit attributes of selected features in a table. Edits are stored separately ({name}_data.sqlite), preserving the original GPKG. Features include plan management (save/restore feature sets with column configuration), expression-based status rows, add/remove features in plans, and GPKG/CSV export with edits applied. Support: https://paypal.me/rawslnc
+about[es]=Cargue una capa GPKG y visualice/edite en tabla los atributos de las entidades seleccionadas. Las ediciones se guardan por separado ({name}_data.sqlite), preservando el GPKG original. Incluye gestión de planes (guardar/restaurar conjuntos de entidades con configuración de columnas), filas de estado basadas en expresiones, agregar/eliminar entidades en planes y exportación GPKG/CSV aplicando ediciones. Soporte: https://paypal.me/rawslnc
+about[pt]=Carregue uma camada GPKG e visualize/edite em tabela os atributos das feições selecionadas. As edições são armazenadas separadamente ({name}_data.sqlite), preservando o GPKG original. Inclui gestão de planos (salvar/restaurar conjuntos de feições com configuração de colunas), linhas de status baseadas em expressão, adicionar/remover feições em planos e exportação GPKG/CSV com as edições aplicadas. Suporte: https://paypal.me/rawslnc
+about[ja]=GPKGレイヤーを読み込み、選択した地物の属性をテーブルで表示・編集します。編集データは別ファイル（{name}_data.sqlite）に保存され、元のGPKGを保護します。計画管理（フィーチャーセットとカラム設定の保存・復元）、式ベースのステータス表示、計画へのフィーチャー追加・削除、編集反映済みのGPKG/CSV出力に対応しています。開発を応援していただけると嬉しいです。 https://paypal.me/rawslnc
 
 tracker=https://github.com/raw-slnc/gpkg_editor/issues
 repository=https://github.com/raw-slnc/gpkg_editor
@@ -22,6 +29,7 @@ repository=https://github.com/raw-slnc/gpkg_editor
 
 hasProcessingProvider=no
 changelog=
+    0.1.5 - Add translations for English, Spanish, and Portuguese; fix untranslatable CSS style strings in UI
     0.1.4 - Update icon and restore screenshot in README
     0.1.3 - Fix feature selection: remove spatial re-search that caused mass selection with MultiPolygon data; fix table-to-map navigation with CRS-aware coordinate transform
     0.1.2 - Migrate UI from independent window to dock widget; replace Ctrl+F/Ctrl+S shortcuts with checkbox-based fullscreen toggle; fix splitter drag lock; clean up shortcuts display

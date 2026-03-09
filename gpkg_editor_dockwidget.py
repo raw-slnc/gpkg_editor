@@ -53,9 +53,26 @@ COLOR_EDITED = QBrush(QColor(255, 0, 0))      # 赤: 編集済み
 class GpkgEditorWindow(QWidget, FORM_CLASS):
     """GPKG編集用ウィンドウ。"""
 
-    def __init__(self, iface, parent=None):
+    def __init__(
+        self,
+        iface,
+        plugin_dir=None,
+        set_language_callback=None,
+        get_language_callback=None,
+        parent=None,
+    ):
         super().__init__(parent)
         self.setupUi(self)
+        self._plugin_dir = plugin_dir or os.path.dirname(__file__)
+        self._set_language_callback = set_language_callback
+        self._get_language_callback = get_language_callback
+        self._language_cycle = ['ja', 'en', 'es', 'pt']
+        self._language_labels = {
+            'ja': '日本語',
+            'en': 'English',
+            'es': 'Español',
+            'pt': 'Português',
+        }
 
         # 左パネル/右パネルをQSplitterに収める
         self._splitter = QSplitter(Qt.Horizontal, self)
@@ -103,6 +120,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.chkOverwrite.toggled.connect(self._on_overwrite_toggled)
         self.chkShowAll.toggled.connect(self._on_show_all_toggled)
         self.chkFullscreen.toggled.connect(self._on_fullscreen_toggled)
+        self.btnLanguage.clicked.connect(self._cycle_language)
         self.btnPlanSave.clicked.connect(self._on_plan_save)
         self.btnPlanDelete.clicked.connect(self._on_plan_delete)
         self.btnPlanAddFeature.clicked.connect(self._on_plan_add_feature)
@@ -140,6 +158,78 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         # Enter→編集開始/確定トグル
         self.tableFeatures.installEventFilter(self)
+        self.retranslate_ui()
+
+    def _current_language_code(self):
+        if self._get_language_callback:
+            return self._get_language_callback()
+        return 'ja'
+
+    def _update_language_button(self):
+        code = self._current_language_code()
+        label = self._language_labels.get(code, code)
+        self.btnLanguage.setText(f'Language: {label}')
+
+    def _cycle_language(self):
+        current = self._current_language_code()
+        if current not in self._language_cycle:
+            current = 'ja'
+        idx = self._language_cycle.index(current)
+        next_locale = self._language_cycle[(idx + 1) % len(self._language_cycle)]
+        if self._set_language_callback:
+            self._set_language_callback(next_locale)
+        self.retranslate_ui()
+
+    def retranslate_ui(self):
+        # Left panel
+        self.groupLayer.setTitle(self.tr('レイヤー'))
+        self.lblLayer.setText(self.tr('GPKGレイヤー:'))
+        self.cmbGpkgLayer.setToolTip(self.tr('プロジェクト内のGPKGレイヤーを選択'))
+        if self.cmbGpkgLayer.count() > 0 and self.cmbGpkgLayer.itemData(0) is None:
+            self.cmbGpkgLayer.setItemText(0, self.tr('-- 選択してください --'))
+        self.groupPlan.setTitle(self.tr('計画'))
+        self.lblPlan.setText(self.tr('計画:'))
+        self.lblPlanName.setText(self.tr('計画名:'))
+        self.lineEditPlanName.setPlaceholderText(self.tr('計画名を入力...'))
+        if self.cmbPlan.count() > 0 and self.cmbPlan.currentIndex() >= 0:
+            first_data = self.cmbPlan.itemData(0)
+            if first_data is None:
+                self.cmbPlan.setItemText(0, self.tr('-- 計画を選択 --'))
+        self.btnPlanSave.setText(self.tr('保存'))
+        self.btnPlanDelete.setText(self.tr('削除'))
+        if not self._feature_add_mode:
+            self.btnPlanAddFeature.setText(self.tr('フィーチャーの追加'))
+        self.btnPlanDeleteFeature.setText(self.tr('フィーチャーの削除'))
+        self.groupOperations.setTitle(self.tr('操作'))
+        self.btnColumnConfig.setText(self.tr('カラム設定'))
+        self.btnExportGpkg.setText(self.tr('GPKG出力'))
+        self.btnExportCsv.setText(self.tr('CSV出力'))
+        self.btnLock.setText(self.tr('ロック中') if self._locked else self.tr('ロック'))
+        self.chkOverwrite.setText(self.tr('GPKGレイヤーに上書き保存する'))
+        self.chkPlanOnly.setText(self.tr('計画範囲のみ出力'))
+        self.groupStatusConfig.setTitle(self.tr('ステータス表示設定'))
+        self.btnStatusRow1.setText(self.tr('1行目'))
+        self.btnStatusRow2.setText(self.tr('2行目'))
+        self.btnShortcutsToggle.setText(
+            self.tr('▼ ショートカット') if self.btnShortcutsToggle.isChecked()
+            else self.tr('▶ ショートカット')
+        )
+        self.lblDesc2.setText(self.tr('セルをコピー（タブ区切り）'))
+        self.lblDesc3.setText(self.tr('クリップボードから貼り付け'))
+        self.lblDesc4.setText(self.tr('横スクロール'))
+        self.lblDesc5.setText(self.tr('末端セルへ移動'))
+        self.lblDesc6.setText(self.tr('末端セルまで選択'))
+        self.lblDesc7.setText(self.tr('セル編集モード切替'))
+
+        # Right panel
+        self.groupStatusDisplay.setTitle(self.tr('ステータス'))
+        self.chkPanelClose.setText(self.tr('パネルを閉じる'))
+        self.chkShowAll.setText(self.tr('フィーチャー全件を描画'))
+        self.chkFullscreen.setText(self.tr('全画面表示'))
+        self.lblLegendDisplay.setText(self.tr('■ 表示のみ'))
+        self.lblLegendEditable.setText(self.tr('■ 編集可能'))
+        self.lblLegendEdited.setText(self.tr('■ 編集済み'))
+        self._update_language_button()
 
     def eventFilter(self, obj, event):
         # Shift+ホイール → 横スクロール
@@ -266,7 +356,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
     def _toggle_shortcuts(self, checked):
         self.shortcutsContent.setVisible(checked)
         self.btnShortcutsToggle.setText(
-            '▼ ショートカット' if checked else '▶ ショートカット'
+            self.tr('▼ ショートカット') if checked else self.tr('▶ ショートカット')
         )
         if checked:
             self.shortcutsSection.setMaximumHeight(16777215)
@@ -283,7 +373,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         self.cmbGpkgLayer.blockSignals(True)
         self.cmbGpkgLayer.clear()
-        self.cmbGpkgLayer.addItem('-- 選択してください --', None)
+        self.cmbGpkgLayer.addItem(self.tr('-- 選択してください --'), None)
 
         layer_tree = QgsProject.instance().layerTreeRoot()
         restore_idx = 0
@@ -323,7 +413,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self.btnStatusRow1.setEnabled(False)
             self.btnStatusRow2.setEnabled(False)
             self._set_plan_ui_enabled(False)
-            self.lblStatus.setText('GPKGレイヤーを選択してください')
+            self.lblStatus.setText(self.tr('GPKGレイヤーを選択してください'))
             return
 
         layer = QgsProject.instance().mapLayer(layer_id)
@@ -335,10 +425,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         try:
             self.data_manager.load_gpkg(gpkg_path)
         except ValueError as e:
-            QMessageBox.critical(self, 'エラー', str(e))
+            QMessageBox.critical(self, self.tr('エラー'), str(e))
             return
 
-        self.lblStatus.setText(f'読込完了: {layer.name()}')
+        self.lblStatus.setText(self.tr('読込完了: {}').format(layer.name()))
 
         columns = self.data_manager.get_original_fields()
         self.column_config = {col: COLUMN_HIDDEN for col in columns}
@@ -380,9 +470,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
     def _on_lock_toggled(self, checked):
         self._locked = checked
         if checked:
-            self.btnLock.setText('ロック中')
+            self.btnLock.setText(self.tr('ロック中'))
         else:
-            self.btnLock.setText('ロック')
+            self.btnLock.setText(self.tr('ロック'))
             if not self._plan_active:
                 self._clear_rubber_bands()
                 self._process_selection()
@@ -683,7 +773,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         selected = active_layer.selectedFeatures()
         if not selected:
             self._clear_table()
-            self.lblStatus.setText('地物が選択されていません')
+            self.lblStatus.setText(self.tr('地物が選択されていません'))
             return
 
         # 同じGPKGレイヤーなら選択フィーチャーIDをそのまま使う
@@ -706,12 +796,14 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         if not fids:
             self._clear_table()
-            self.lblStatus.setText('交差するフィーチャーがありません')
+            self.lblStatus.setText(self.tr('交差するフィーチャーがありません'))
             return
 
         self._current_fids = fids
         self._update_table(fids)
-        self.lblStatus.setText(f'{len(fids)} 件のフィーチャーが見つかりました')
+        self.lblStatus.setText(
+            self.tr('{} 件のフィーチャーが見つかりました').format(len(fids))
+        )
 
     # ──────────────────────────────────────────────
     # テーブル表示
@@ -750,7 +842,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         if not visible_cols:
             self._clear_table()
             self.lblStatus.setText(
-                '表示カラムが設定されていません。カラム設定を行ってください。'
+                self.tr('表示カラムが設定されていません。カラム設定を行ってください。')
             )
             self._editing = False
             return
@@ -827,7 +919,11 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                     break
             self._update_status_display()
         except Exception as e:
-            QMessageBox.warning(self, '保存エラー', f'編集の保存に失敗しました: {e}')
+            QMessageBox.warning(
+                self,
+                self.tr('保存エラー'),
+                self.tr('編集の保存に失敗しました: {}').format(e),
+            )
 
     # ──────────────────────────────────────────────
     # 計画管理
@@ -844,12 +940,12 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self._deactivate_plan()
             self.cmbPlan.clear()
             self.lineEditPlanName.clear()
-            self.lblFeatureCount.setText('フィーチャー数: -')
+            self.lblFeatureCount.setText(self.tr('フィーチャー数: -'))
 
     def _refresh_plan_combo(self):
         self.cmbPlan.blockSignals(True)
         self.cmbPlan.clear()
-        self.cmbPlan.addItem('-- 計画を選択 --')
+        self.cmbPlan.addItem(self.tr('-- 計画を選択 --'))
         for name in self.data_manager.list_plans():
             self.cmbPlan.addItem(name)
         self.cmbPlan.setCurrentIndex(0)
@@ -860,7 +956,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self._deactivate_plan()
             self._clear_table()
             self.lineEditPlanName.clear()
-            self.lblStatus.setText('GPKGレイヤーを選択してください')
+            self.lblStatus.setText(self.tr('GPKGレイヤーを選択してください'))
             return
         plan_name = self.cmbPlan.currentText()
         plan = self.data_manager.load_plan(plan_name)
@@ -881,20 +977,23 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._activate_plan(plan_name)
         self._update_table(self._current_fids)
         self.lblStatus.setText(
-            f'計画「{plan_name}」を読み込みました '
-            f'({len(self._current_fids)} 件)'
+            self.tr('計画「{}」を読み込みました ({} 件)').format(
+                plan_name, len(self._current_fids)
+            )
         )
 
     def _on_plan_save(self):
         name = self.lineEditPlanName.text().strip()
         if not name:
-            QMessageBox.warning(self, '保存エラー', '計画名を入力してください。')
+            QMessageBox.warning(
+                self, self.tr('保存エラー'), self.tr('計画名を入力してください。')
+            )
             return
         if not self._current_fids:
             QMessageBox.warning(
-                self, '保存エラー',
-                'テーブルにデータがありません。\n'
-                '地物を選択してから保存してください。',
+                self,
+                self.tr('保存エラー'),
+                self.tr('テーブルにデータがありません。\n地物を選択してから保存してください。'),
             )
             return
 
@@ -912,17 +1011,20 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self.cmbPlan.blockSignals(False)
 
         self._activate_plan(name)
-        self.lblStatus.setText(f'計画「{name}」を保存しました')
+        self.lblStatus.setText(self.tr('計画「{}」を保存しました').format(name))
 
     def _on_plan_delete(self):
         idx = self.cmbPlan.currentIndex()
         if idx <= 0:
-            QMessageBox.warning(self, '削除エラー', '削除する計画を選択してください。')
+            QMessageBox.warning(
+                self, self.tr('削除エラー'), self.tr('削除する計画を選択してください。')
+            )
             return
         name = self.cmbPlan.currentText()
         ret = QMessageBox.question(
-            self, '確認',
-            f'計画「{name}」を削除しますか？',
+            self,
+            self.tr('確認'),
+            self.tr('計画「{}」を削除しますか？').format(name),
             QMessageBox.Yes | QMessageBox.No,
         )
         if ret != QMessageBox.Yes:
@@ -933,10 +1035,12 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.lineEditPlanName.clear()
         self._clear_table()
         self._refresh_plan_combo()
-        self.lblStatus.setText(f'計画「{name}」を削除しました')
+        self.lblStatus.setText(self.tr('計画「{}」を削除しました').format(name))
 
     def _update_feature_count(self):
-        self.lblFeatureCount.setText(f'フィーチャー数: {len(self._current_fids)}')
+        self.lblFeatureCount.setText(
+            self.tr('フィーチャー数: {}').format(len(self._current_fids))
+        )
 
     def _activate_plan(self, name):
         """計画をアクティブ（ロック）状態にする。"""
@@ -950,7 +1054,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._plan_active = False
         self._active_plan_name = None
         self._feature_add_mode = False
-        self.btnPlanAddFeature.setText('フィーチャーの追加')
+        self.btnPlanAddFeature.setText(self.tr('フィーチャーの追加'))
         self.btnPlanAddFeature.setEnabled(False)
         self.btnPlanDeleteFeature.setEnabled(False)
         self._clear_rubber_bands_base()
@@ -967,29 +1071,31 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self._feature_add_mode = True
             self._update_add_mode_button()
             self.lblStatus.setText(
-                'メインウィンドウでフィーチャーを選択してください（複数選択可）'
+                self.tr('メインウィンドウでフィーチャーを選択してください（複数選択可）')
             )
             return
 
         active_layer = self._get_add_mode_layer()
         if not active_layer:
             self._feature_add_mode = False
-            self.btnPlanAddFeature.setText('フィーチャーの追加')
-            self.lblStatus.setText('フィーチャーの追加をキャンセルしました')
+            self.btnPlanAddFeature.setText(self.tr('フィーチャーの追加'))
+            self.lblStatus.setText(self.tr('フィーチャーの追加をキャンセルしました'))
             return
 
         selected = active_layer.selectedFeatures()
         if not selected:
             self._feature_add_mode = False
-            self.btnPlanAddFeature.setText('フィーチャーの追加')
-            self.lblStatus.setText('フィーチャーの追加をキャンセルしました')
+            self.btnPlanAddFeature.setText(self.tr('フィーチャーの追加'))
+            self.lblStatus.setText(self.tr('フィーチャーの追加をキャンセルしました'))
             return
 
         # 追加対象のfidを取得（_get_add_mode_layer は同一ソースのみ返す）
         new_fids = [f.id() for f in selected]
 
         if not new_fids:
-            QMessageBox.information(self, '追加', '追加対象のフィーチャーがありません。')
+            QMessageBox.information(
+                self, self.tr('追加'), self.tr('追加対象のフィーチャーがありません。')
+            )
             return
 
         # 既存fidsと重複しないものだけ追加
@@ -998,20 +1104,23 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         if not added:
             self._feature_add_mode = False
-            self.btnPlanAddFeature.setText('フィーチャーの追加')
-            self.lblStatus.setText('選択されたフィーチャーはすべて計画に含まれています')
+            self.btnPlanAddFeature.setText(self.tr('フィーチャーの追加'))
+            self.lblStatus.setText(
+                self.tr('選択されたフィーチャーはすべて計画に含まれています')
+            )
             return
 
         # 確認ダイアログ
         ret = QMessageBox.question(
-            self, '確認',
-            f'{len(added)} 件のフィーチャーを追加します。よろしいですか？',
+            self,
+            self.tr('確認'),
+            self.tr('{} 件のフィーチャーを追加します。よろしいですか？').format(len(added)),
             QMessageBox.Ok | QMessageBox.Cancel,
         )
         if ret != QMessageBox.Ok:
             self._feature_add_mode = False
-            self.btnPlanAddFeature.setText('フィーチャーの追加')
-            self.lblStatus.setText('フィーチャーの追加をキャンセルしました')
+            self.btnPlanAddFeature.setText(self.tr('フィーチャーの追加'))
+            self.lblStatus.setText(self.tr('フィーチャーの追加をキャンセルしました'))
             return
 
         self._current_fids = self._current_fids + added
@@ -1027,10 +1136,11 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         # モードをリセット
         self._feature_add_mode = False
-        self.btnPlanAddFeature.setText('フィーチャーの追加')
+        self.btnPlanAddFeature.setText(self.tr('フィーチャーの追加'))
         self.lblStatus.setText(
-            f'{len(added)} 件のフィーチャーを追加しました '
-            f'(計 {len(self._current_fids)} 件)'
+            self.tr('{} 件のフィーチャーを追加しました (計 {} 件)').format(
+                len(added), len(self._current_fids)
+            )
         )
 
     def _get_add_mode_layer(self):
@@ -1047,9 +1157,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         active_layer = self._get_add_mode_layer()
         selected = active_layer.selectedFeatures() if active_layer else []
         if selected:
-            self.btnPlanAddFeature.setText('選択を確定する')
+            self.btnPlanAddFeature.setText(self.tr('選択を確定する'))
         else:
-            self.btnPlanAddFeature.setText('キャンセル')
+            self.btnPlanAddFeature.setText(self.tr('キャンセル'))
 
     def _on_plan_delete_feature(self):
         """テーブルで選択中のフィーチャーを計画から削除する。"""
@@ -1060,8 +1170,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         selected_indexes = self.tableFeatures.selectionModel().selectedIndexes()
         if not selected_indexes:
             QMessageBox.warning(
-                self, '削除エラー',
-                'テーブルから削除するフィーチャーを選択してください。',
+                self,
+                self.tr('削除エラー'),
+                self.tr('テーブルから削除するフィーチャーを選択してください。'),
             )
             return
 
@@ -1078,8 +1189,11 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         # 確認ダイアログ
         ret = QMessageBox.question(
-            self, '確認',
-            f'選択された {len(remove_fids)} 件のフィーチャーを削除します。よろしいですか？',
+            self,
+            self.tr('確認'),
+            self.tr('選択された {} 件のフィーチャーを削除します。よろしいですか？').format(
+                len(remove_fids)
+            ),
             QMessageBox.Ok | QMessageBox.Cancel,
         )
         if ret != QMessageBox.Ok:
@@ -1098,25 +1212,27 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._update_table(self._current_fids)
         self._clear_rubber_bands()
         self.lblStatus.setText(
-            f'{len(remove_fids)} 件のフィーチャーを削除しました '
-            f'(計 {len(self._current_fids)} 件)'
+            self.tr('{} 件のフィーチャーを削除しました (計 {} 件)').format(
+                len(remove_fids), len(self._current_fids)
+            )
         )
 
     # ──────────────────────────────────────────────
     # ステータス表示
     # ──────────────────────────────────────────────
 
-    _STATUS_HELP = (
-        'QGIS式風の書式（選択行の値を表示）\n\n'
-        '"カラム名"  選択行のカラム値\n'
-        "'テキスト'  文字列リテラル\n"
-        '||  文字列結合    =, !=, >, <  比較\n'
-        'if(条件, 真, 偽)  条件分岐\n'
-        'round(数値[, 桁])  四捨五入（桁は省略可）\n\n'
-        '集計関数（全行対象）:\n'
-        '  count() / sum("COL") / unique("COL")\n\n'
-        '例: "名称" || \' - \' || "種別" || \'  (\' || count() || \'件)\''
-    )
+    def _status_help_text(self):
+        return self.tr(
+            'QGIS式風の書式（選択行の値を表示）\n\n'
+            '"カラム名"  選択行のカラム値\n'
+            "'テキスト'  文字列リテラル\n"
+            '||  文字列結合    =, !=, >, <  比較\n'
+            'if(条件, 真, 偽)  条件分岐\n'
+            'round(数値[, 桁])  四捨五入（桁は省略可）\n\n'
+            '集計関数（全行対象）:\n'
+            '  count() / sum("COL") / unique("COL")\n\n'
+            '例: "名称" || \' - \' || "種別" || \'  (\' || count() || \'件)\''
+        )
 
     def _get_status_exprs(self):
         """現在のステータス式を辞書として返す。"""
@@ -1131,14 +1247,14 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             )
 
     def _on_status_row1_config(self):
-        text, ok = self._edit_status_expr('ステータス1行目', self._status_expr1)
+        text, ok = self._edit_status_expr(self.tr('ステータス1行目'), self._status_expr1)
         if ok:
             self._status_expr1 = text
             self._update_status_display()
             self._auto_save_plan_status()
 
     def _on_status_row2_config(self):
-        text, ok = self._edit_status_expr('ステータス2行目', self._status_expr2)
+        text, ok = self._edit_status_expr(self.tr('ステータス2行目'), self._status_expr2)
         if ok:
             self._status_expr2 = text
             self._update_status_display()
@@ -1161,7 +1277,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         layout = QVBoxLayout(dlg)
 
-        help_label = QLabel(self._STATUS_HELP, dlg)
+        help_label = QLabel(self._status_help_text(), dlg)
         help_label.setWordWrap(True)
         layout.addWidget(help_label)
 
@@ -1234,9 +1350,12 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         if self.chkPlanOnly.isChecked():
             if not self._current_fids:
                 QMessageBox.warning(
-                    self, '出力エラー',
-                    'テーブルにデータがありません。\n'
-                    '地物を選択または計画を読み込んでから出力してください。',
+                    self,
+                    self.tr('出力エラー'),
+                    self.tr(
+                        'テーブルにデータがありません。\n'
+                        '地物を選択または計画を読み込んでから出力してください。'
+                    ),
                 )
                 return False, None
             return True, self._current_fids
@@ -1256,17 +1375,27 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             return
 
         path, _ = QFileDialog.getSaveFileName(
-            self, 'GPKG出力先を選択', '',
-            'GeoPackage Files (*.gpkg);;All Files (*)',
+            self,
+            self.tr('GPKG出力先を選択'),
+            '',
+            self.tr('GeoPackage Files (*.gpkg);;All Files (*)'),
         )
         if not path:
             return
 
         try:
             self.data_manager.export_gpkg(path, fids=fids)
-            QMessageBox.information(self, '完了', f'GPKGファイルを出力しました:\n{path}')
+            QMessageBox.information(
+                self,
+                self.tr('完了'),
+                self.tr('GPKGファイルを出力しました:\n{}').format(path),
+            )
         except Exception as e:
-            QMessageBox.critical(self, 'エラー', f'GPKG出力に失敗しました: {e}')
+            QMessageBox.critical(
+                self,
+                self.tr('エラー'),
+                self.tr('GPKG出力に失敗しました: {}').format(e),
+            )
 
     def _overwrite_gpkg(self):
         """編集内容をQGIS標準編集APIでGPKGに直接書き込む（FID・未編集属性を保持）。"""
@@ -1281,12 +1410,18 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         all_edits = self.data_manager.get_all_edits()
         if not all_edits:
-            QMessageBox.information(self, '情報', '保存する編集がありません。')
+            QMessageBox.information(
+                self, self.tr('情報'), self.tr('保存する編集がありません。')
+            )
             return
 
         ret = QMessageBox.warning(
-            self, '上書き確認',
-            f'元のGPKGファイルに編集を書き込みます:\n{path}\n\nこの操作は取り消せません。よろしいですか？',
+            self,
+            self.tr('上書き確認'),
+            self.tr(
+                '元のGPKGファイルに編集を書き込みます:\n{}\n\n'
+                'この操作は取り消せません。よろしいですか？'
+            ).format(path),
             QMessageBox.Yes | QMessageBox.No,
         )
         if ret != QMessageBox.Yes:
@@ -1317,11 +1452,19 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             if self._current_fids:
                 self._update_table(self._current_fids)
 
-            self.lblStatus.setText('上書き保存が完了しました')
-            QMessageBox.information(self, '完了', f'GPKGファイルに編集を書き込みました:\n{path}')
+            self.lblStatus.setText(self.tr('上書き保存が完了しました'))
+            QMessageBox.information(
+                self,
+                self.tr('完了'),
+                self.tr('GPKGファイルに編集を書き込みました:\n{}').format(path),
+            )
         except Exception as e:
             layer.rollBack()
-            QMessageBox.critical(self, 'エラー', f'上書き保存に失敗しました: {e}')
+            QMessageBox.critical(
+                self,
+                self.tr('エラー'),
+                self.tr('上書き保存に失敗しました: {}').format(e),
+            )
 
     def _on_export_csv(self):
         ok, fids = self._get_export_fids()
@@ -1329,14 +1472,24 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             return
 
         path, _ = QFileDialog.getSaveFileName(
-            self, 'CSV出力先を選択', '',
-            'CSV Files (*.csv);;All Files (*)',
+            self,
+            self.tr('CSV出力先を選択'),
+            '',
+            self.tr('CSV Files (*.csv);;All Files (*)'),
         )
         if not path:
             return
 
         try:
             self.data_manager.export_csv(path, fids=fids)
-            QMessageBox.information(self, '完了', f'CSVファイルを出力しました:\n{path}')
+            QMessageBox.information(
+                self,
+                self.tr('完了'),
+                self.tr('CSVファイルを出力しました:\n{}').format(path),
+            )
         except Exception as e:
-            QMessageBox.critical(self, 'エラー', f'CSV出力に失敗しました: {e}')
+            QMessageBox.critical(
+                self,
+                self.tr('エラー'),
+                self.tr('CSV出力に失敗しました: {}').format(e),
+            )
