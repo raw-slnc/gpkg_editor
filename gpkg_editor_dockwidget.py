@@ -195,7 +195,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             first_data = self.cmbPlan.itemData(0)
             if first_data is None:
                 self.cmbPlan.setItemText(0, self.tr('-- 計画を選択 --'))
-        self.btnPlanSave.setText(self.tr('保存'))
+        if self._plan_active or self._get_visible_cols():
+            self.btnPlanSave.setText(self.tr('保存'))
+        else:
+            self.btnPlanSave.setText(self.tr('計画作成を開始する'))
         self.btnPlanDelete.setText(self.tr('削除'))
         if not self._feature_add_mode:
             self.btnPlanAddFeature.setText(self.tr('フィーチャーの追加'))
@@ -442,6 +445,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.btnStatusRow2.setEnabled(True)
         self._set_plan_ui_enabled(True)
         self._refresh_plan_combo()
+        self.btnPlanSave.setText(self.tr('計画作成を開始する'))
 
         self._clear_table()
 
@@ -454,6 +458,8 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         dlg = ColumnConfigDialog(columns, self.column_config, self)
         if dlg.exec_() == ColumnConfigDialog.Accepted:
             self.column_config = dlg.get_config()
+            if self._get_visible_cols():
+                self.btnPlanSave.setText(self.tr('保存'))
             if self._current_fids:
                 self._update_table(self._current_fids)
             else:
@@ -958,6 +964,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self._clear_table()
             self.lineEditPlanName.clear()
             self.lblStatus.setText(self.tr('GPKGレイヤーを選択してください'))
+            self.btnPlanSave.setText(self.tr('計画作成を開始する'))
             return
         plan_name = self.cmbPlan.currentText()
         plan = self.data_manager.load_plan(plan_name)
@@ -976,6 +983,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._status_expr2 = status_exprs.get('expr2', '')
 
         self._activate_plan(plan_name)
+        self.btnPlanSave.setText(self.tr('保存'))
         self._update_table(self._current_fids)
         self.lblStatus.setText(
             self.tr('計画「{}」を読み込みました ({} 件)').format(
@@ -989,6 +997,12 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             QMessageBox.warning(
                 self, self.tr('保存エラー'), self.tr('計画名を入力してください。')
             )
+            return
+        if not self._get_visible_cols():
+            self.lblStatus.setText(
+                self.tr('表示カラムが設定されていません。カラム設定を行ってください。')
+            )
+            self._on_column_config()
             return
         if not self._current_fids:
             QMessageBox.warning(

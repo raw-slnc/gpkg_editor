@@ -164,6 +164,11 @@
         <translation>Plano "{}" carregado ({} itens)</translation>
     </message>
     <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="445" />
+        <source>計画作成を開始する</source>
+        <translation>Começar a criar um plano</translation>
+    </message>
+    <message>
         <location filename="../gpkg_editor_dockwidget.py" line="988" />
         <source>計画名を入力してください。</source>
         <translation>Digite o nome do plano.</translation>

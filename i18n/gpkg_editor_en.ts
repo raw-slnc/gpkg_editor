@@ -334,6 +334,11 @@
         <translation>Plan "{}" loaded ({} items)</translation>
     </message>
     <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="445" />
+        <source>計画作成を開始する</source>
+        <translation>Start creating a plan</translation>
+    </message>
+    <message>
         <location filename="../gpkg_editor_dockwidget.py" line="988" />
         <source>計画名を入力してください。</source>
         <translation>Please enter a plan name.</translation>

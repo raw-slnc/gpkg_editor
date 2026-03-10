@@ -12,7 +12,7 @@ description[en]=View and edit GeoPackage (GPKG) layer attributes with plan manag
 description[es]=Visualice y edite atributos de capas GeoPackage (GPKG) con gestión de planes y exportación GPKG/CSV.
 description[pt]=Visualize e edite atributos de camadas GeoPackage (GPKG) com gestão de planos e exportação GPKG/CSV.
 description[ja]=GeoPackage（GPKG）レイヤー属性の閲覧・編集、計画管理、GPKG/CSV出力を行います。
-version=0.1.5
+version=0.1.6
 author=Hideharu Masai
 email=hideharumasai@void.mints.ne.jp
 
@@ -29,6 +29,7 @@ repository=https://github.com/raw-slnc/gpkg_editor
 
 hasProcessingProvider=no
 changelog=
+    0.1.6 - Show "Start creating a plan" button on GPKG load to guide column setup; auto-open column config dialog when no visible columns are set on save
     0.1.5 - Add translations for English, Spanish, and Portuguese; fix untranslatable CSS style strings in UI
     0.1.4 - Update icon and restore screenshot in README
     0.1.3 - Fix feature selection: remove spatial re-search that caused mass selection with MultiPolygon data; fix table-to-map navigation with CRS-aware coordinate transform
