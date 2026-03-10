@@ -544,6 +544,12 @@
          </widget>
         </item>
         <item>
+         <widget class="QLabel" name="lblLegendInfo">
+          <property name="text"><string>■ 情報（後列）</string></property>
+          <property name="styleSheet"><string notr="true">color: #e67e22; font-size: 11px;</string></property>
+         </widget>
+        </item>
+        <item>
          <spacer name="legendSpacer">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>

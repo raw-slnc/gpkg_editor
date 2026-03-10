@@ -229,6 +229,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.lblLegendDisplay.setText(self.tr('■ 表示のみ'))
         self.lblLegendEditable.setText(self.tr('■ 編集可能'))
         self.lblLegendEdited.setText(self.tr('■ 編集済み'))
+        self.lblLegendInfo.setText(self.tr('■ 情報（後列）'))
         self._update_language_button()
 
     def eventFilter(self, obj, event):
