@@ -15,13 +15,17 @@ A QGIS plugin for viewing and editing GeoPackage (GPKG) layer attributes with pl
 
 ## Column modes
 
-Each column can be set to one of three modes in the column configuration dialog:
+Each column can be set to one of four modes in the column configuration dialog:
 
 | Mode | Description |
 |------|-------------|
 | Hidden (非表示) | Not shown in the table |
 | Display (表示のみ) | Shown read-only |
 | Editable (表示＋編集) | Shown and editable |
+| Info (情報) | Shown read-only, always placed after Display and Editable columns (rear columns) |
+
+The **Info** mode is intended for reference columns that you want to keep visually separated from the main working columns.
+Columns appear in this order: Display → Editable → Info.
 
 ## Status expression syntax
 
