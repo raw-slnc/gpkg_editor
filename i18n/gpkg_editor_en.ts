@@ -274,6 +274,11 @@
         <translation>■ Edited</translation>
     </message>
     <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="232" />
+        <source>■ 情報（後列）</source>
+        <translation>■ Info (rear)</translation>
+    </message>
+    <message>
         <location filename="../gpkg_editor_dockwidget.py" line="959" />
         <source>GPKGレイヤーを選択してください</source>
         <translation>Please select a GPKG layer</translation>

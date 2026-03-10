@@ -576,6 +576,11 @@ Esta operação não pode ser desfeita. Continuar?</translation>
         <source>■ 編集済み</source>
         <translation>■ Editado</translation>
     </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="232" />
+        <source>■ 情報（後列）</source>
+        <translation>■ Informação (coluna traseira)</translation>
+    </message>
 </context>
 <context>
     <name>GpkgEditorWindowBase</name>
