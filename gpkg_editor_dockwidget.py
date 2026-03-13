@@ -19,7 +19,7 @@ from qgis.PyQt.QtWidgets import (
     QWidget,
 )
 from qgis.PyQt.QtCore import Qt, QEvent, QItemSelection, QItemSelectionModel, QTimer
-from qgis.PyQt.QtGui import QColor, QBrush
+from qgis.PyQt.QtGui import QColor, QBrush, QPainter, QPen, QPixmap
 from qgis.core import (
     QgsProject,
     QgsCoordinateTransform,
@@ -89,6 +89,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         # 左パネル開閉チェックボックス
         self.chkPanelClose.toggled.connect(self._on_panel_close_toggled)
 
+        # サムネイルアコーディオン
+        self.btnThumbnailToggle.toggled.connect(self._toggle_thumbnail)
+        QTimer.singleShot(0, self._apply_thumbnail_closed_height)
+
         # ショートカットアコーディオン
         self.btnShortcutsToggle.toggled.connect(self._toggle_shortcuts)
         # 描画完了後に初期状態（閉じ）の高さ制約を適用
@@ -153,6 +157,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         # マップ選択変更の監視
         self.iface.mapCanvas().selectionChanged.connect(self._on_selection_changed)
         self.iface.mapCanvas().viewport().installEventFilter(self)
+
         # Shift+スクロール→横スクロール（eventFilter）
         self.tableFeatures.viewport().installEventFilter(self)
 
@@ -213,6 +218,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.groupStatusConfig.setTitle(self.tr('ステータス表示設定'))
         self.btnStatusRow1.setText(self.tr('1行目'))
         self.btnStatusRow2.setText(self.tr('2行目'))
+        self.btnThumbnailToggle.setText(
+            self.tr('▼ マップサムネイル') if self.btnThumbnailToggle.isChecked()
+            else self.tr('▶ マップサムネイル')
+        )
         self.btnShortcutsToggle.setText(
             self.tr('▼ ショートカット') if self.btnShortcutsToggle.isChecked()
             else self.tr('▶ ショートカット')
@@ -305,6 +314,14 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         return super().eventFilter(obj, event)
 
+    def _on_visibility_changed(self, visible):
+        """ドック非表示（×ボタン）時に選択・ラバーバンドを解除する。"""
+        if not visible:
+            self._clear_rubber_bands()
+            self._clear_rubber_bands_base()
+            if self.data_manager.original_layer:
+                self.data_manager.original_layer.removeSelection()
+
     def cleanup(self):
         """プラグイン終了時のリソース解放。unload から呼ばれる。"""
         self._clear_rubber_bands()
@@ -356,6 +373,170 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             target = self.rightPanel.sizeHint().height()
             dock.setMaximumHeight(target)
             QTimer.singleShot(100, lambda: dock.setMaximumHeight(16777215))
+
+    def _apply_thumbnail_closed_height(self):
+        """初期・閉じ時: thumbnailSection をボタン1行分に制限し dock を縮小。"""
+        h = self.btnThumbnailToggle.height()
+        self.thumbnailSection.setMaximumHeight(h if h > 0 else 28)
+        dock = self.parentWidget()
+        if dock and not getattr(dock, 'isFloating', lambda: True)():
+            target = self.rightPanel.sizeHint().height()
+            dock.setMaximumHeight(target)
+            QTimer.singleShot(100, lambda: dock.setMaximumHeight(16777215))
+
+    def _toggle_thumbnail(self, checked):
+        self.thumbnailContent.setVisible(checked)
+        self.btnThumbnailToggle.setText(
+            self.tr('▼ マップサムネイル') if checked else self.tr('▶ マップサムネイル')
+        )
+        if checked:
+            self.thumbnailSection.setMaximumHeight(16777215)
+            QTimer.singleShot(0, self._render_thumbnail)
+        else:
+            QTimer.singleShot(0, self._apply_thumbnail_closed_height)
+
+    def _render_thumbnail(self):
+        """計画フィーチャーをサムネイル描画する。"""
+        if not self.btnThumbnailToggle.isChecked():
+            return
+
+        layer = self.data_manager.original_layer
+        all_fids = self._current_fids
+        if not layer or not all_fids:
+            self.lblThumbnail.clear()
+            return
+
+        # ウィジェット幅から 16:9 サイズを決定
+        w = max(self.lblThumbnail.width(), 80)
+        h = w * 9 // 16
+        self.lblThumbnail.setFixedHeight(h)
+
+        PADDING = 0.08  # バウンディングボックスに対する余白率
+
+        # 全フィーチャーのジオメトリ取得
+        request = QgsFeatureRequest().setFilterFids(all_fids)
+        geoms = {}
+        for feat in layer.getFeatures(request):
+            g = feat.geometry()
+            if g and not g.isNull():
+                geoms[feat.id()] = g
+
+        if not geoms:
+            self.lblThumbnail.clear()
+            return
+
+        # バウンディングボックス計算
+        combined = QgsGeometry.unaryUnion(list(geoms.values()))
+        bbox = combined.boundingBox()
+
+        bw = bbox.width()
+        bh = bbox.height()
+
+        # ポイントレイヤーまたは縮退bbox対応
+        if bw == 0 and bh == 0:
+            cx, cy = bbox.center().x(), bbox.center().y()
+            bw = bh = 1.0
+            bbox.set(cx - 0.5, cy - 0.5, cx + 0.5, cy + 0.5)
+        elif bw == 0:
+            bbox.set(bbox.xMinimum() - bh * 0.5, bbox.yMinimum(),
+                     bbox.xMaximum() + bh * 0.5, bbox.yMaximum())
+            bw = bh
+        elif bh == 0:
+            bbox.set(bbox.xMinimum(), bbox.yMinimum() - bw * 0.5,
+                     bbox.xMaximum(), bbox.yMaximum() + bw * 0.5)
+            bh = bw
+
+        # アスペクト比をウィジェットに合わせて調整
+        widget_ratio = w / h
+        geo_ratio = bw / bh
+        if geo_ratio > widget_ratio:
+            expand = bw / widget_ratio - bh
+            bbox.set(bbox.xMinimum(), bbox.yMinimum() - expand / 2,
+                     bbox.xMaximum(), bbox.yMaximum() + expand / 2)
+        else:
+            expand = bh * widget_ratio - bw
+            bbox.set(bbox.xMinimum() - expand / 2, bbox.yMinimum(),
+                     bbox.xMaximum() + expand / 2, bbox.yMaximum())
+
+        # 余白を追加
+        pad_x = bbox.width() * PADDING
+        pad_y = bbox.height() * PADDING
+        bbox.set(bbox.xMinimum() - pad_x, bbox.yMinimum() - pad_y,
+                 bbox.xMaximum() + pad_x, bbox.yMaximum() + pad_y)
+
+        scale_x = w / bbox.width()
+        scale_y = h / bbox.height()
+
+        def to_px(x, y):
+            return (
+                int((x - bbox.xMinimum()) * scale_x),
+                int((bbox.yMaximum() - y) * scale_y),
+            )
+
+        # 描画
+        pixmap = QPixmap(w, h)
+        pixmap.fill(Qt.black)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing, False)
+
+        pen_feat = QPen(QColor(255, 255, 255))
+        pen_feat.setWidth(1)
+        painter.setPen(pen_feat)
+
+        geom_type = layer.geometryType()  # 0=Point, 1=Line, 2=Polygon
+
+        for fid, geom in geoms.items():
+            if geom_type == QgsWkbTypes.PointGeometry:
+                pt = geom.centroid().asPoint()
+                px, py = to_px(pt.x(), pt.y())
+                painter.drawEllipse(px - 2, py - 2, 4, 4)
+            elif geom_type == QgsWkbTypes.LineGeometry:
+                for part in geom.asGeometryCollection() or [geom]:
+                    pts = part.asPolyline() or []
+                    if not pts:
+                        for line in (part.asMultiPolyline() or []):
+                            for i in range(len(line) - 1):
+                                x0, y0 = to_px(line[i].x(), line[i].y())
+                                x1, y1 = to_px(line[i+1].x(), line[i+1].y())
+                                painter.drawLine(x0, y0, x1, y1)
+                    else:
+                        for i in range(len(pts) - 1):
+                            x0, y0 = to_px(pts[i].x(), pts[i].y())
+                            x1, y1 = to_px(pts[i+1].x(), pts[i+1].y())
+                            painter.drawLine(x0, y0, x1, y1)
+            else:  # Polygon
+                for part in geom.asGeometryCollection() or [geom]:
+                    rings = part.asPolygon() or []
+                    if not rings:
+                        for poly in (part.asMultiPolygon() or []):
+                            for ring in poly:
+                                for i in range(len(ring) - 1):
+                                    x0, y0 = to_px(ring[i].x(), ring[i].y())
+                                    x1, y1 = to_px(ring[i+1].x(), ring[i+1].y())
+                                    painter.drawLine(x0, y0, x1, y1)
+                    else:
+                        for ring in rings:
+                            for i in range(len(ring) - 1):
+                                x0, y0 = to_px(ring[i].x(), ring[i].y())
+                                x1, y1 = to_px(ring[i+1].x(), ring[i+1].y())
+                                painter.drawLine(x0, y0, x1, y1)
+
+        # 選択フィーチャーのクロスヘア描画
+        selected_fids = set(self._get_selected_fids())
+        if selected_fids:
+            pen_sel = QPen(QColor(255, 80, 80))
+            pen_sel.setWidth(1)
+            painter.setPen(pen_sel)
+            CROSS = 6  # クロスヘアの半径(px)
+            for fid in selected_fids:
+                if fid in geoms:
+                    c = geoms[fid].centroid().asPoint()
+                    cx, cy = to_px(c.x(), c.y())
+                    painter.drawLine(cx - CROSS, cy, cx + CROSS, cy)
+                    painter.drawLine(cx, cy - CROSS, cx, cy + CROSS)
+
+        painter.end()
+        self.lblThumbnail.setPixmap(pixmap)
 
     def _toggle_shortcuts(self, checked):
         self.shortcutsContent.setVisible(checked)
@@ -645,6 +826,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         # 選択中の全行からfidを収集
         fids = self._get_selected_fids()
         self._highlight_features(fids)
+        self._render_thumbnail()
 
     def _get_selected_fids(self):
         """テーブルで選択中の全行のfidリストを返す。"""
@@ -985,6 +1167,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._activate_plan(plan_name)
         self.btnPlanSave.setText(self.tr('保存'))
         self._update_table(self._current_fids)
+        self._render_thumbnail()
         self.lblStatus.setText(
             self.tr('計画「{}」を読み込みました ({} 件)').format(
                 plan_name, len(self._current_fids)

@@ -89,6 +89,16 @@
         <translation>▶ Atajos</translation>
     </message>
     <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="389" />
+        <source>▼ マップサムネイル</source>
+        <translation>▼ Miniatura del mapa</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="389" />
+        <source>▶ マップサムネイル</source>
+        <translation>▶ Miniatura del mapa</translation>
+    </message>
+    <message>
         <location filename="../gpkg_editor_dockwidget.py" line="376" />
         <source>-- 選択してください --</source>
         <translation>-- Seleccione --</translation>

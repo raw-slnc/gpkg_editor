@@ -134,6 +134,7 @@ class GpkgEditor:
                 Qt.BottomDockWidgetArea | Qt.TopDockWidgetArea
             )
             self.iface.addDockWidget(Qt.BottomDockWidgetArea, self.dock)
+            self.dock.visibilityChanged.connect(self.window._on_visibility_changed)
 
         if self.dock.isVisible():
             self.dock.raise_()

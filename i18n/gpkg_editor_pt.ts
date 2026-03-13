@@ -89,6 +89,16 @@
         <translation>▶ Atalhos</translation>
     </message>
     <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="389" />
+        <source>▼ マップサムネイル</source>
+        <translation>▼ Miniatura do mapa</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="389" />
+        <source>▶ マップサムネイル</source>
+        <translation>▶ Miniatura do mapa</translation>
+    </message>
+    <message>
         <location filename="../gpkg_editor_dockwidget.py" line="376" />
         <source>-- 選択してください --</source>
         <translation>-- Selecione --</translation>

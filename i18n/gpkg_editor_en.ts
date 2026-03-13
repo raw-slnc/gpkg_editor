@@ -209,6 +209,16 @@
         <translation>▶ Shortcuts</translation>
     </message>
     <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="389" />
+        <source>▼ マップサムネイル</source>
+        <translation>▼ Map Thumbnail</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="389" />
+        <source>▶ マップサムネイル</source>
+        <translation>▶ Map Thumbnail</translation>
+    </message>
+    <message>
         <location filename="../gpkg_editor_dockwidget.py" line="217" />
         <source>セルをコピー（タブ区切り）</source>
         <translation>Copy cells (tab-delimited)</translation>

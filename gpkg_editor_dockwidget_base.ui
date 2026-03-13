@@ -303,6 +303,55 @@
         </layout>
        </widget>
       </item>
+      <!-- サムネイルセクション（アコーディオン） -->
+      <item>
+       <widget class="QWidget" name="thumbnailSection">
+        <layout class="QVBoxLayout" name="thumbnailSectionLayout">
+         <property name="spacing"><number>0</number></property>
+         <property name="leftMargin"><number>0</number></property>
+         <property name="topMargin"><number>0</number></property>
+         <property name="rightMargin"><number>0</number></property>
+         <property name="bottomMargin"><number>0</number></property>
+         <item>
+          <widget class="QPushButton" name="btnThumbnailToggle">
+           <property name="text"><string>▶ マップサムネイル</string></property>
+           <property name="flat"><bool>true</bool></property>
+           <property name="checkable"><bool>true</bool></property>
+           <property name="checked"><bool>false</bool></property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton{text-align:left;padding:3px 6px;font-size:11px;border:none;border-bottom:1px solid #ccc;background:transparent;}QPushButton:hover{background:#f0f0f0;}</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="thumbnailContent">
+           <property name="visible"><bool>false</bool></property>
+           <layout class="QVBoxLayout" name="thumbnailContentLayout">
+            <property name="spacing"><number>0</number></property>
+            <property name="leftMargin"><number>0</number></property>
+            <property name="topMargin"><number>0</number></property>
+            <property name="rightMargin"><number>0</number></property>
+            <property name="bottomMargin"><number>0</number></property>
+            <item>
+             <widget class="QLabel" name="lblThumbnail">
+              <property name="text"><string/></property>
+              <property name="alignment">
+               <set>Qt::AlignCenter</set>
+              </property>
+              <property name="minimumSize">
+               <size><width>0</width><height>120</height></size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">background:#1a1a1a;</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
       <!-- ショートカットセクション（アコーディオン） -->
       <item>
        <widget class="QWidget" name="shortcutsSection">
