@@ -25,11 +25,12 @@ from qgis.core import (
     QgsCoordinateTransform,
     QgsFeatureRequest,
     QgsGeometry,
+    QgsPointXY,
     QgsRectangle,
     QgsVectorLayer,
     QgsWkbTypes,
 )
-from qgis.gui import QgsRubberBand
+from qgis.gui import QgsRubberBand, QgsVertexMarker
 
 from .gpkg_data_manager import GpkgDataManager
 from .status_expression import evaluate_row_expr
@@ -63,6 +64,8 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
     ):
         super().__init__(parent)
         self.setupUi(self)
+
+
         self._plugin_dir = plugin_dir or os.path.dirname(__file__)
         self._set_language_callback = set_language_callback
         self._get_language_callback = get_language_callback
@@ -106,6 +109,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._locked = False
         self._rubber_bands = []
         self._rubber_bands_base = []   # 全体表示モード用（計画全フィーチャー）
+        self._vertex_markers = []      # ポイントレイヤー用クロスヘアマーカー
         self._plan_active = False
         self._active_plan_name = None
         self._status_expr1 = ''
@@ -245,6 +249,16 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._update_language_button()
 
     def eventFilter(self, obj, event):
+        # ロック中: キャンバスのパン・ズーム操作をブロック
+        if obj == self.iface.mapCanvas().viewport() and self._locked:
+            if event.type() in (
+                QEvent.MouseButtonPress,
+                QEvent.MouseButtonDblClick,
+                QEvent.MouseMove,
+                QEvent.Wheel,
+            ):
+                return True
+
         # Shift+ホイール → 横スクロール
         if obj == self.tableFeatures.viewport() and event.type() == QEvent.Wheel:
             if event.modifiers() == Qt.ShiftModifier:
@@ -390,10 +404,29 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self.tr('▼ マップサムネイル') if checked else self.tr('▶ マップサムネイル')
         )
         if checked:
+            if self.btnShortcutsToggle.isChecked():
+                self.btnShortcutsToggle.setChecked(False)
             self.thumbnailSection.setMaximumHeight(16777215)
             QTimer.singleShot(0, self._render_thumbnail)
         else:
             QTimer.singleShot(0, self._apply_thumbnail_closed_height)
+
+    def _update_thumbnail_for_layer(self):
+        """レイヤー選択時にポイント判定でサムネイルアコーディオンを制御する。"""
+        layer = self.data_manager.original_layer
+        is_point = bool(layer and layer.geometryType() == QgsWkbTypes.PointGeometry)
+        self.btnThumbnailToggle.setEnabled(not is_point)
+        if is_point and self.btnThumbnailToggle.isChecked():
+            self.btnThumbnailToggle.setChecked(False)
+        if is_point:
+            self.btnThumbnailToggle.setText(
+                self.tr('▶ マップサムネイル') + '   ' + self.tr('不要')
+            )
+        else:
+            self.btnThumbnailToggle.setText(
+                self.tr('▼ マップサムネイル') if self.btnThumbnailToggle.isChecked()
+                else self.tr('▶ マップサムネイル')
+            )
 
     def _render_thumbnail(self):
         """計画フィーチャーをサムネイル描画する。"""
@@ -402,13 +435,17 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         layer = self.data_manager.original_layer
         all_fids = self._current_fids
+
         if not layer or not all_fids:
             self.lblThumbnail.clear()
             return
 
-        # ウィジェット幅から 16:9 サイズを決定
+        if layer.geometryType() == QgsWkbTypes.PointGeometry:
+            return
+
+        # ウィジェット幅から 16:8 サイズを決定
         w = max(self.lblThumbnail.width(), 80)
-        h = w * 9 // 16
+        h = w * 8 // 16
         self.lblThumbnail.setFixedHeight(h)
 
         PADDING = 0.08  # バウンディングボックスに対する余白率
@@ -425,9 +462,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self.lblThumbnail.clear()
             return
 
-        # バウンディングボックス計算
-        combined = QgsGeometry.unaryUnion(list(geoms.values()))
-        bbox = combined.boundingBox()
+        # バウンディングボックス計算（直接集計、unaryUnion不使用）
+        bbox = QgsRectangle()
+        for geom in geoms.values():
+            bbox.combineExtentWith(geom.boundingBox())
 
         bw = bbox.width()
         bh = bbox.height()
@@ -536,6 +574,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                     painter.drawLine(cx, cy - CROSS, cx, cy + CROSS)
 
         painter.end()
+        self.lblThumbnail.setText('')
         self.lblThumbnail.setPixmap(pixmap)
 
     def _toggle_shortcuts(self, checked):
@@ -544,6 +583,8 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self.tr('▼ ショートカット') if checked else self.tr('▶ ショートカット')
         )
         if checked:
+            if self.btnThumbnailToggle.isChecked():
+                self.btnThumbnailToggle.setChecked(False)
             self.shortcutsSection.setMaximumHeight(16777215)
         else:
             QTimer.singleShot(0, self._apply_shortcuts_closed_height)
@@ -627,6 +668,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._set_plan_ui_enabled(True)
         self._refresh_plan_combo()
         self.btnPlanSave.setText(self.tr('計画作成を開始する'))
+        self._update_thumbnail_for_layer()
 
         self._clear_table()
 
@@ -670,40 +712,88 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._highlight_features([fid] if fid is not None else [])
 
     def _highlight_features(self, fids):
-        """複数フィーチャーをラバーバンドで強調表示する。
-        全体表示モード時は90%透過の黄色で選択フィーチャーを表示する。
+        """複数フィーチャーをラバーバンドまたはクロスヘアで強調表示する。
+        ポイントレイヤー時は QgsVertexMarker（白ハロ＋赤本体）を使用する。
         """
         self._clear_rubber_bands()
         if not self.data_manager.original_layer or not fids:
             return
 
-        if self.chkShowAll.isChecked():
-            stroke = QColor(255, 200, 0, 200)  # アンバー（不透明寄り）
-            fill = QColor(255, 255, 0, 26)      # 黄色 90%透過 (alpha≈26)
-            width = 2.0
-        else:
-            stroke = QColor(255, 0, 0, 180)
-            fill = QColor(0, 0, 0, 0)
-            width = 1.3
-
-        # 最適化: レイヤーのジオメトリタイプに合わせて1つのラバーバンドを作成
         layer = self.data_manager.original_layer
-        rb = QgsRubberBand(self.iface.mapCanvas(), layer.geometryType())
-        rb.setStrokeColor(stroke)
-        rb.setFillColor(fill)
-        rb.setWidth(width)
 
-        request = QgsFeatureRequest().setFilterFids(fids)
-        for feat in layer.getFeatures(request):
-            if feat.geometry().isNull():
-                continue
-            rb.addGeometry(feat.geometry(), layer)
-        self._rubber_bands.append(rb)
+        if layer.geometryType() == QgsWkbTypes.PointGeometry:
+            request = QgsFeatureRequest().setFilterFids(fids)
+            for feat in layer.getFeatures(request):
+                if feat.geometry().isNull():
+                    continue
+                pt = feat.geometry().centroid().asPoint()
+                # 白ハロ（背景）
+                halo = QgsVertexMarker(self.iface.mapCanvas())
+                halo.setCenter(pt)
+                halo.setIconType(QgsVertexMarker.ICON_CROSS)
+                halo.setColor(QColor(255, 255, 255, 220))
+                halo.setIconSize(16)
+                halo.setPenWidth(4)
+                self._vertex_markers.append(halo)
+                # 赤本体
+                marker = QgsVertexMarker(self.iface.mapCanvas())
+                marker.setCenter(pt)
+                marker.setIconType(QgsVertexMarker.ICON_CROSS)
+                marker.setColor(QColor(255, 0, 0, 220))
+                marker.setIconSize(14)
+                marker.setPenWidth(2)
+                self._vertex_markers.append(marker)
+        else:
+            if self.chkShowAll.isChecked():
+                stroke = QColor(255, 200, 0, 200)
+                fill = QColor(255, 255, 0, 26)
+                width = 2.0
+            else:
+                stroke = QColor(255, 0, 0, 180)
+                fill = QColor(0, 0, 0, 0)
+                width = 1.3
+
+            rb = QgsRubberBand(self.iface.mapCanvas(), layer.geometryType())
+            rb.setStrokeColor(stroke)
+            rb.setFillColor(fill)
+            rb.setWidth(width)
+
+            request = QgsFeatureRequest().setFilterFids(fids)
+            for feat in layer.getFeatures(request):
+                if feat.geometry().isNull():
+                    continue
+                rb.addGeometry(feat.geometry(), layer)
+            self._rubber_bands.append(rb)
+
+            # ロック中: 重心にクロスヘアを追加
+            if self._locked:
+                request2 = QgsFeatureRequest().setFilterFids(fids)
+                for feat in layer.getFeatures(request2):
+                    if feat.geometry().isNull():
+                        continue
+                    pt = feat.geometry().centroid().asPoint()
+                    halo = QgsVertexMarker(self.iface.mapCanvas())
+                    halo.setCenter(pt)
+                    halo.setIconType(QgsVertexMarker.ICON_CROSS)
+                    halo.setColor(QColor(255, 255, 255, 220))
+                    halo.setIconSize(16)
+                    halo.setPenWidth(4)
+                    self._vertex_markers.append(halo)
+                    marker = QgsVertexMarker(self.iface.mapCanvas())
+                    marker.setCenter(pt)
+                    marker.setIconType(QgsVertexMarker.ICON_CROSS)
+                    marker.setColor(QColor(255, 0, 0, 220))
+                    marker.setIconSize(14)
+                    marker.setPenWidth(2)
+                    self._vertex_markers.append(marker)
 
     def _clear_rubber_bands(self):
         for rb in self._rubber_bands:
             self.iface.mapCanvas().scene().removeItem(rb)
         self._rubber_bands.clear()
+        for m in self._vertex_markers:
+            self.iface.mapCanvas().scene().removeItem(m)
+        self._vertex_markers.clear()
 
     def _clear_rubber_bands_base(self):
         """全体表示用ラバーバンド（計画全フィーチャー）をクリアする。"""
@@ -760,10 +850,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             win.showNormal()
 
     def _on_table_row_changed(self, current, _previous):
-        """ロック中または計画アクティブ時：テーブル行選択→マップ中心移動。
+        """テーブル行選択→マップ中心移動（ロック中は移動しない）。
         複数選択時は全選択フィーチャーの合算バウンディングボックス中心に移動する。
         """
-        if not self._locked and not self._plan_active:
+        if self._locked:
             return
         if not current.isValid():
             return
@@ -791,16 +881,22 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         def to_canvas_crs(point):
             if need_transform:
                 t = QgsCoordinateTransform(layer_crs, canvas_crs, QgsProject.instance())
-                return t.transform(point)
+                try:
+                    return t.transform(point)
+                except Exception:
+                    return None
             return point
 
         if len(selected_fids) == 1:
             request = QgsFeatureRequest().setFilterFids(selected_fids)
             feat = next(layer.getFeatures(request), None)
             if feat and not feat.geometry().isNull():
-                center = to_canvas_crs(feat.geometry().boundingBox().center())
-                canvas.setCenter(center)
-                canvas.refresh()
+                geom = feat.geometry()
+                raw = geom.boundingBox().center()
+                center = to_canvas_crs(raw)
+                if center is not None:
+                    canvas.setCenter(center)
+                    canvas.refresh()
         else:
             # 複数選択: 全フィーチャーの合算バウンディングボックス中心へ移動
             combined_extent = None
@@ -813,10 +909,11 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                     combined_extent = QgsRectangle(bbox)
                 else:
                     combined_extent.combineExtentWith(bbox)
-            if combined_extent and not combined_extent.isEmpty():
+            if combined_extent is not None:
                 center = to_canvas_crs(combined_extent.center())
-                canvas.setCenter(center)
-                canvas.refresh()
+                if center is not None:
+                    canvas.setCenter(center)
+                    canvas.refresh()
 
     def _on_table_selection_changed(self, selected, deselected):
         """テーブルの選択変更時：選択された全フィーチャーを強調表示。"""
@@ -827,6 +924,39 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         fids = self._get_selected_fids()
         self._highlight_features(fids)
         self._render_thumbnail()
+        self._pan_to_highlights()
+
+        # QGISレイヤー選択と同期（メインウィンドウへ反映）
+        layer = self.data_manager.original_layer
+        if layer:
+            layer.selectByIds(fids)
+
+    def _pan_to_highlights(self):
+        """強調表示位置にキャンバスを移動する（ロック中は移動しない）。
+        ポイント: マーカーの center()（キャンバスCRS済み）を使用。
+        その他: ラバーバンドの asGeometry() から bbox を計算。
+        """
+        if self._locked:
+            return
+        canvas = self.iface.mapCanvas()
+        if self._vertex_markers:
+            # ハロ+本体の2枚ペアなので偶数インデックスのみ使用
+            pts = [self._vertex_markers[i].center()
+                   for i in range(0, len(self._vertex_markers), 2)]
+            if pts:
+                cx = sum(p.x() for p in pts) / len(pts)
+                cy = sum(p.y() for p in pts) / len(pts)
+                canvas.setCenter(QgsPointXY(cx, cy))
+                canvas.refresh()
+        elif self._rubber_bands:
+            combined = QgsRectangle()
+            for rb in self._rubber_bands:
+                geom = rb.asGeometry()
+                if geom and not geom.isNull():
+                    combined.combineExtentWith(geom.boundingBox())
+            if not combined.isNull():
+                canvas.setCenter(combined.center())
+                canvas.refresh()
 
     def _get_selected_fids(self):
         """テーブルで選択中の全行のfidリストを返す。"""

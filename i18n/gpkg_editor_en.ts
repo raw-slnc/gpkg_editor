@@ -596,6 +596,11 @@ This action cannot be undone. Continue?</translation>
         <source>CSV出力に失敗しました: {}</source>
         <translation>CSV export failed: {}</translation>
     </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="67" />
+        <source>不要</source>
+        <translation>Not required.</translation>
+    </message>
 </context>
 <context>
     <name>GpkgEditorWindowBase</name>
@@ -823,6 +828,11 @@ This action cannot be undone. Continue?</translation>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="562" />
         <source>言語</source>
         <translation>Language</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="338" />
+        <source>Not required.</source>
+        <translation>Not required.</translation>
     </message>
 </context>
 </TS>

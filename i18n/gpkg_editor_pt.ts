@@ -596,6 +596,11 @@ Esta operação não pode ser desfeita. Continuar?</translation>
         <source>■ 情報（後列）</source>
         <translation>■ Informação (coluna traseira)</translation>
     </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="67" />
+        <source>不要</source>
+        <translation>Não é necessário.</translation>
+    </message>
 </context>
 <context>
     <name>GpkgEditorWindowBase</name>
@@ -823,6 +828,11 @@ Esta operação não pode ser desfeita. Continuar?</translation>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="562" />
         <source>言語</source>
         <translation>Idioma</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="338" />
+        <source>Not required.</source>
+        <translation>Não é necessário.</translation>
     </message>
 </context>
 </TS>

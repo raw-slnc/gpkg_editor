@@ -12,6 +12,8 @@ A QGIS plugin for viewing and editing GeoPackage (GPKG) layer attributes with pl
 - **Feature management**: Add or remove features from the active plan
 - **Status display**: Define expression-based status rows to show computed values for the selected row
 - **Export**: Export the merged result (original + edits) as GPKG or CSV
+- **Lock mode**: Freeze the map canvas to prevent accidental panning. While locked, table row selection highlights features in place without moving the canvas, allowing spatial comparison within a fixed view
+- **Map thumbnail**: Visual overview of the current plan's features. Mutually exclusive with the Shortcuts panel
 
 ## Column modes
 
@@ -60,9 +62,13 @@ Aggregate functions (applied to all rows):
 | Ctrl+Shift+Arrow | Select to end cell |
 | Enter | Toggle edit mode for current cell |
 
+## Lock mode
+
+Enabling lock mode freezes the map canvas entirely — user pan and zoom are disabled. Table row selection still highlights the corresponding feature (with a crosshair marker for point layers, or rubber band + crosshair for line/polygon layers), but the canvas does not follow. This lets you browse the attribute table and compare features within a fixed spatial view.
+
 ## Requirements
 
-- QGIS 3.0 or later
+- QGIS 3.16 or later
 
 ## License
 
