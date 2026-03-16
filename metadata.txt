@@ -12,14 +12,14 @@ description[en]=View and edit GeoPackage (GPKG) layer attributes with plan manag
 description[es]=Visualice y edite atributos de capas GeoPackage (GPKG) con gestión de planes y exportación GPKG/CSV.
 description[pt]=Visualize e edite atributos de camadas GeoPackage (GPKG) com gestão de planos e exportação GPKG/CSV.
 description[ja]=GeoPackage（GPKG）レイヤー属性の閲覧・編集、計画管理、GPKG/CSV出力を行います。
-version=0.1.8
+version=0.1.9
 author=Hideharu Masai
 email=hideharumasai@void.mints.ne.jp
 
-about=Load a GPKG layer and view/edit attributes of selected features in a table. Edits are stored separately ({name}_data.sqlite), preserving the original GPKG. Features include plan management (save/restore feature sets with column configuration), expression-based status rows, add/remove features in plans, and GPKG/CSV export with edits applied. Support: https://paypal.me/rawslnc
-about[es]=Cargue una capa GPKG y visualice/edite en tabla los atributos de las entidades seleccionadas. Las ediciones se guardan por separado ({name}_data.sqlite), preservando el GPKG original. Incluye gestión de planes (guardar/restaurar conjuntos de entidades con configuración de columnas), filas de estado basadas en expresiones, agregar/eliminar entidades en planes y exportación GPKG/CSV aplicando ediciones. Soporte: https://paypal.me/rawslnc
-about[pt]=Carregue uma camada GPKG e visualize/edite em tabela os atributos das feições selecionadas. As edições são armazenadas separadamente ({name}_data.sqlite), preservando o GPKG original. Inclui gestão de planos (salvar/restaurar conjuntos de feições com configuração de colunas), linhas de status baseadas em expressão, adicionar/remover feições em planos e exportação GPKG/CSV com as edições aplicadas. Suporte: https://paypal.me/rawslnc
-about[ja]=GPKGレイヤーを読み込み、選択した地物の属性をテーブルで表示・編集します。編集データは別ファイル（{name}_data.sqlite）に保存され、元のGPKGを保護します。計画管理（フィーチャーセットとカラム設定の保存・復元）、式ベースのステータス表示、計画へのフィーチャー追加・削除、編集反映済みのGPKG/CSV出力に対応しています。開発を応援していただけると嬉しいです。 https://paypal.me/rawslnc
+about=Manage multiple named plans against a single GPKG — switch and compare them instantly without duplicating files. All plans and attribute edits are stored in one companion file ({name}_data.sqlite), leaving the original GPKG untouched. Each plan holds a feature set with column configuration; edits are merged only at export time (GPKG/CSV). Also features expression-based status rows and a lock mode that freezes the canvas for spatial comparison. Support: https://paypal.me/rawslnc
+about[es]=Gestione múltiples planes sobre un único GPKG: cámbielos y compárelos al instante sin duplicar archivos. Todos los planes y ediciones de atributos se almacenan en un único archivo complementario ({name}_data.sqlite), dejando el GPKG original intacto. Cada plan contiene un conjunto de entidades con configuración de columnas; las ediciones se fusionan solo al exportar (GPKG/CSV). También incluye filas de estado basadas en expresiones y un modo de bloqueo que congela el lienzo para comparación espacial. Soporte: https://paypal.me/rawslnc
+about[pt]=Gerencie múltiplos planos sobre um único GPKG — alterne e compare-os instantaneamente sem duplicar arquivos. Todos os planos e edições de atributos são armazenados em um único arquivo complementar ({name}_data.sqlite), mantendo o GPKG original intacto. Cada plano contém um conjunto de feições com configuração de colunas; as edições são mescladas somente na exportação (GPKG/CSV). Também inclui linhas de status baseadas em expressão e um modo de bloqueio que congela o canvas para comparação espacial. Suporte: https://paypal.me/rawslnc
+about[ja]=1つのGPKGに対して複数の計画を管理し、ファイルを複製せずに即座に切り替えて比較できます。すべての計画と属性編集は1つの管理ファイル（{name}_data.sqlite）に保存され、元のGPKGは一切変更されません。各計画はフィーチャーセットとカラム設定を保持し、編集はエクスポート時（GPKG/CSV）にのみ統合されます。式ベースのステータス表示、空間比較のためのキャンバス固定ロックモードにも対応しています。開発を応援していただけると嬉しいです。 https://paypal.me/rawslnc
 
 tracker=https://github.com/raw-slnc/gpkg_editor/issues
 repository=https://github.com/raw-slnc/gpkg_editor
@@ -29,6 +29,7 @@ repository=https://github.com/raw-slnc/gpkg_editor
 
 hasProcessingProvider=no
 changelog=
+    0.1.9 - Fix lock mode to block only pan/zoom tools (not selection tools); add lock checkbox to status bar; single table-row selection shows rubber band instead of layer selection in plan mode; point layers use crosshair markers (skip temp layer); two-layer line symbology (black+yellow, point units); pan to selection for all geometry types; fix map-to-table sync when plan active; fix NoneType error when temp layer absent; fix temp layer source URI and CRS assignment; zoom to plan extent on activation
     0.1.8 - Redesign lock mode to freeze canvas movement; add crosshair highlight (point layers and locked mode); mutually exclusive thumbnail/shortcuts accordion; point layer thumbnail notice; fix canvas centering for point layers; sync table selection to QGIS layer; optimize thumbnail rendering
     0.1.7 - Clear map selection and rubber bands when dock widget is closed; add Map Thumbnail section title translations (EN/ES/PT)
     0.1.6 - Show "Start creating a plan" button on GPKG load to guide column setup; auto-open column config dialog when no visible columns are set on save

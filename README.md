@@ -12,7 +12,7 @@ A QGIS plugin for viewing and editing GeoPackage (GPKG) layer attributes with pl
 - **Feature management**: Add or remove features from the active plan
 - **Status display**: Define expression-based status rows to show computed values for the selected row
 - **Export**: Export the merged result (original + edits) as GPKG or CSV
-- **Lock mode**: Freeze the map canvas to prevent accidental panning. While locked, table row selection highlights features in place without moving the canvas, allowing spatial comparison within a fixed view
+- **Lock mode**: Freeze the map canvas to prevent accidental panning while keeping selection tools active. While locked, table row selection highlights features in place without moving the canvas, allowing spatial comparison within a fixed view
 - **Map thumbnail**: Visual overview of the current plan's features. Mutually exclusive with the Shortcuts panel
 
 ## Column modes
@@ -64,7 +64,16 @@ Aggregate functions (applied to all rows):
 
 ## Lock mode
 
-Enabling lock mode freezes the map canvas entirely — user pan and zoom are disabled. Table row selection still highlights the corresponding feature (with a crosshair marker for point layers, or rubber band + crosshair for line/polygon layers), but the canvas does not follow. This lets you browse the attribute table and compare features within a fixed spatial view.
+Enabling lock mode freezes the map canvas — pan and zoom are disabled, but selection tools remain active. Table row selection highlights the corresponding feature (crosshair marker for point layers; rubber band for line/polygon layers), but the canvas does not pan to follow. This lets you browse the attribute table and compare features within a fixed spatial view.
+
+A **Lock** checkbox is also available in the status bar alongside the panel-close and fullscreen toggles.
+
+## Planned Features
+
+### Attribute Edit History
+Track how each feature's attributes have changed over time. Every edit is recorded with the previous value, new value, plan name, and timestamp. A history view will be available alongside the attribute table, making it possible to review changes per feature — useful for annual updates to agricultural fields, timber volume tracking in forestry, or road maintenance records.
+
+フィーチャーごとの属性編集履歴を記録・照会する機能です。農地の年次更新、山林の材積推移、林道の補修記録などの用途を想定しています。
 
 ## Requirements
 

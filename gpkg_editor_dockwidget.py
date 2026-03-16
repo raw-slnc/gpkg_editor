@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import sip
 
 from qgis.PyQt import uic
 from qgis.PyQt.QtWidgets import (
@@ -29,8 +30,14 @@ from qgis.core import (
     QgsRectangle,
     QgsVectorLayer,
     QgsWkbTypes,
+    QgsSingleSymbolRenderer,
+    QgsFillSymbol,
+    QgsLineSymbol,
+    QgsMarkerSymbol,
+    QgsSimpleLineSymbolLayer,
+    QgsUnitTypes,
 )
-from qgis.gui import QgsRubberBand, QgsVertexMarker
+from qgis.gui import QgsRubberBand, QgsVertexMarker, QgsMapToolPan, QgsMapToolZoom
 
 from .gpkg_data_manager import GpkgDataManager
 from .status_expression import evaluate_row_expr
@@ -107,9 +114,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._current_fids = []
         self._editing = False
         self._locked = False
+        self._temp_layer = None
+        self._syncing_selection = False
         self._rubber_bands = []
-        self._rubber_bands_base = []   # 全体表示モード用（計画全フィーチャー）
-        self._vertex_markers = []      # ポイントレイヤー用クロスヘアマーカー
+        self._vertex_markers = []
         self._plan_active = False
         self._active_plan_name = None
         self._status_expr1 = ''
@@ -125,8 +133,8 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.btnExportGpkg.clicked.connect(self._on_export_gpkg)
         self.btnExportCsv.clicked.connect(self._on_export_csv)
         self.btnLock.toggled.connect(self._on_lock_toggled)
+        self.chkLock.toggled.connect(self._on_lock_toggled)
         self.chkOverwrite.toggled.connect(self._on_overwrite_toggled)
-        self.chkShowAll.toggled.connect(self._on_show_all_toggled)
         self.chkFullscreen.toggled.connect(self._on_fullscreen_toggled)
         self.btnLanguage.clicked.connect(self._cycle_language)
         self.btnPlanSave.clicked.connect(self._on_plan_save)
@@ -160,6 +168,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         # マップ選択変更の監視
         self.iface.mapCanvas().selectionChanged.connect(self._on_selection_changed)
+        self.iface.mapCanvas().installEventFilter(self)
         self.iface.mapCanvas().viewport().installEventFilter(self)
 
         # Shift+スクロール→横スクロール（eventFilter）
@@ -168,6 +177,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         # Enter→編集開始/確定トグル
         self.tableFeatures.installEventFilter(self)
         self.retranslate_ui()
+
+        # 前回セッションで保存された一時レイヤーを起動時に削除
+        self._cleanup_orphan_temp_layers()
 
     def _current_language_code(self):
         if self._get_language_callback:
@@ -217,6 +229,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.btnExportGpkg.setText(self.tr('GPKG出力'))
         self.btnExportCsv.setText(self.tr('CSV出力'))
         self.btnLock.setText(self.tr('ロック中') if self._locked else self.tr('ロック'))
+        self.chkLock.setText(self.tr('ロック'))
         self.chkOverwrite.setText(self.tr('GPKGレイヤーに上書き保存する'))
         self.chkPlanOnly.setText(self.tr('計画範囲のみ出力'))
         self.groupStatusConfig.setTitle(self.tr('ステータス表示設定'))
@@ -240,7 +253,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         # Right panel
         self.groupStatusDisplay.setTitle(self.tr('ステータス'))
         self.chkPanelClose.setText(self.tr('パネルを閉じる'))
-        self.chkShowAll.setText(self.tr('フィーチャー全件を描画'))
         self.chkFullscreen.setText(self.tr('全画面表示'))
         self.lblLegendDisplay.setText(self.tr('■ 表示のみ'))
         self.lblLegendEditable.setText(self.tr('■ 編集可能'))
@@ -249,15 +261,20 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._update_language_button()
 
     def eventFilter(self, obj, event):
-        # ロック中: キャンバスのパン・ズーム操作をブロック
-        if obj == self.iface.mapCanvas().viewport() and self._locked:
+        # ロック中: パン・ズームツール操作のみブロック（選択ツール等は通す）
+        canvas = self.iface.mapCanvas()
+        if self._locked and obj in (canvas, canvas.viewport()):
+            if event.type() == QEvent.Wheel:
+                return True
             if event.type() in (
                 QEvent.MouseButtonPress,
+                QEvent.MouseButtonRelease,
                 QEvent.MouseButtonDblClick,
                 QEvent.MouseMove,
-                QEvent.Wheel,
             ):
-                return True
+                tool = canvas.mapTool()
+                if isinstance(tool, (QgsMapToolPan, QgsMapToolZoom)):
+                    return True
 
         # Shift+ホイール → 横スクロール
         if obj == self.tableFeatures.viewport() and event.type() == QEvent.Wheel:
@@ -329,17 +346,21 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         return super().eventFilter(obj, event)
 
     def _on_visibility_changed(self, visible):
-        """ドック非表示（×ボタン）時に選択・ラバーバンドを解除する。"""
+        """ドック非表示（×ボタン）時に選択・ラバーバンドを解除する。
+        吸着・分離操作では一時的に False が発火するため、1イベントループ後に判定する。"""
         if not visible:
-            self._clear_rubber_bands()
-            self._clear_rubber_bands_base()
+            QTimer.singleShot(0, self._on_maybe_hidden)
+
+    def _on_maybe_hidden(self):
+        """ドックが本当に非表示になった場合のみクリーンアップする。"""
+        if not self.isVisible():
+            self._remove_temp_layer()
             if self.data_manager.original_layer:
                 self.data_manager.original_layer.removeSelection()
 
     def cleanup(self):
         """プラグイン終了時のリソース解放。unload から呼ばれる。"""
-        self._clear_rubber_bands()
-        self._clear_rubber_bands_base()
+        self._remove_temp_layer()
         try:
             self.iface.mapCanvas().selectionChanged.disconnect(
                 self._on_selection_changed
@@ -636,6 +657,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self.btnExportGpkg.setEnabled(False)
             self.btnExportCsv.setEnabled(False)
             self.btnLock.setEnabled(False)
+            self.chkLock.setEnabled(False)
             self.btnStatusRow1.setEnabled(False)
             self.btnStatusRow2.setEnabled(False)
             self._set_plan_ui_enabled(False)
@@ -663,6 +685,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.btnExportGpkg.setEnabled(True)
         self.btnExportCsv.setEnabled(True)
         self.btnLock.setEnabled(True)
+        self.chkLock.setEnabled(True)
         self.btnStatusRow1.setEnabled(True)
         self.btnStatusRow2.setEnabled(True)
         self._set_plan_ui_enabled(True)
@@ -699,141 +722,29 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
     def _on_lock_toggled(self, checked):
         self._locked = checked
+        # 2つのロックUI を同期（シグナルループ防止）
+        for widget in (self.btnLock, self.chkLock):
+            if widget.isChecked() != checked:
+                widget.blockSignals(True)
+                widget.setChecked(checked)
+                widget.blockSignals(False)
         if checked:
             self.btnLock.setText(self.tr('ロック中'))
         else:
             self.btnLock.setText(self.tr('ロック'))
             if not self._plan_active:
-                self._clear_rubber_bands()
                 self._process_selection()
-
-    def _highlight_feature(self, fid):
-        """指定フィーチャーのみをラバーバンドで強調表示する。"""
-        self._highlight_features([fid] if fid is not None else [])
-
-    def _highlight_features(self, fids):
-        """複数フィーチャーをラバーバンドまたはクロスヘアで強調表示する。
-        ポイントレイヤー時は QgsVertexMarker（白ハロ＋赤本体）を使用する。
-        """
-        self._clear_rubber_bands()
-        if not self.data_manager.original_layer or not fids:
-            return
-
-        layer = self.data_manager.original_layer
-
-        if layer.geometryType() == QgsWkbTypes.PointGeometry:
-            request = QgsFeatureRequest().setFilterFids(fids)
-            for feat in layer.getFeatures(request):
-                if feat.geometry().isNull():
-                    continue
-                pt = feat.geometry().centroid().asPoint()
-                # 白ハロ（背景）
-                halo = QgsVertexMarker(self.iface.mapCanvas())
-                halo.setCenter(pt)
-                halo.setIconType(QgsVertexMarker.ICON_CROSS)
-                halo.setColor(QColor(255, 255, 255, 220))
-                halo.setIconSize(16)
-                halo.setPenWidth(4)
-                self._vertex_markers.append(halo)
-                # 赤本体
-                marker = QgsVertexMarker(self.iface.mapCanvas())
-                marker.setCenter(pt)
-                marker.setIconType(QgsVertexMarker.ICON_CROSS)
-                marker.setColor(QColor(255, 0, 0, 220))
-                marker.setIconSize(14)
-                marker.setPenWidth(2)
-                self._vertex_markers.append(marker)
-        else:
-            if self.chkShowAll.isChecked():
-                stroke = QColor(255, 200, 0, 200)
-                fill = QColor(255, 255, 0, 26)
-                width = 2.0
             else:
-                stroke = QColor(255, 0, 0, 180)
-                fill = QColor(0, 0, 0, 0)
-                width = 1.3
+                self._pan_to_selected()
 
-            rb = QgsRubberBand(self.iface.mapCanvas(), layer.geometryType())
-            rb.setStrokeColor(stroke)
-            rb.setFillColor(fill)
-            rb.setWidth(width)
-
-            request = QgsFeatureRequest().setFilterFids(fids)
-            for feat in layer.getFeatures(request):
-                if feat.geometry().isNull():
-                    continue
-                rb.addGeometry(feat.geometry(), layer)
-            self._rubber_bands.append(rb)
-
-            # ロック中: 重心にクロスヘアを追加
-            if self._locked:
-                request2 = QgsFeatureRequest().setFilterFids(fids)
-                for feat in layer.getFeatures(request2):
-                    if feat.geometry().isNull():
-                        continue
-                    pt = feat.geometry().centroid().asPoint()
-                    halo = QgsVertexMarker(self.iface.mapCanvas())
-                    halo.setCenter(pt)
-                    halo.setIconType(QgsVertexMarker.ICON_CROSS)
-                    halo.setColor(QColor(255, 255, 255, 220))
-                    halo.setIconSize(16)
-                    halo.setPenWidth(4)
-                    self._vertex_markers.append(halo)
-                    marker = QgsVertexMarker(self.iface.mapCanvas())
-                    marker.setCenter(pt)
-                    marker.setIconType(QgsVertexMarker.ICON_CROSS)
-                    marker.setColor(QColor(255, 0, 0, 220))
-                    marker.setIconSize(14)
-                    marker.setPenWidth(2)
-                    self._vertex_markers.append(marker)
-
-    def _clear_rubber_bands(self):
-        for rb in self._rubber_bands:
-            self.iface.mapCanvas().scene().removeItem(rb)
-        self._rubber_bands.clear()
-        for m in self._vertex_markers:
-            self.iface.mapCanvas().scene().removeItem(m)
-        self._vertex_markers.clear()
-
-    def _clear_rubber_bands_base(self):
-        """全体表示用ラバーバンド（計画全フィーチャー）をクリアする。"""
-        for rb in self._rubber_bands_base:
-            self.iface.mapCanvas().scene().removeItem(rb)
-        self._rubber_bands_base.clear()
-
-    def _update_show_all_display(self):
-        """全体表示モードで計画全フィーチャーをラバーバンド表示する。"""
-        self._clear_rubber_bands_base()
-        if not self.chkShowAll.isChecked():
+    def _select_features(self, fids):
+        """テーブル選択をレイヤー選択に反映する。"""
+        layer = (self._temp_layer if self._temp_layer_valid() else None) or self.data_manager.original_layer
+        if not layer:
             return
-        if not self._current_fids or not self.data_manager.original_layer:
-            return
-
-        # 最適化: 全体表示用も1つのラバーバンドにまとめる
-        layer = self.data_manager.original_layer
-        rb = QgsRubberBand(self.iface.mapCanvas(), layer.geometryType())
-        rb.setStrokeColor(QColor(255, 0, 0, 120))
-        rb.setFillColor(QColor(0, 0, 0, 0))
-        rb.setWidth(1.0)
-
-        request = QgsFeatureRequest().setFilterFids(self._current_fids)
-        for feat in layer.getFeatures(request):
-            if feat.geometry().isNull():
-                continue
-            rb.addGeometry(feat.geometry(), layer)
-        self._rubber_bands_base.append(rb)
-
-    def _on_show_all_toggled(self, checked):
-        """全体表示チェックの切り替え処理。"""
-        if checked:
-            self._update_show_all_display()
-        else:
-            self._clear_rubber_bands_base()
-            fids = self._get_selected_fids()
-            if fids and (self._locked or self._plan_active):
-                self._highlight_features(fids)
-            else:
-                self._clear_rubber_bands()
+        self._syncing_selection = True
+        layer.selectByIds(fids)
+        self._syncing_selection = False
 
     def _on_fullscreen_toggled(self, checked):
         """全画面表示チェックの切り替え処理。フロート中のみ有効。"""
@@ -916,26 +827,58 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                     canvas.refresh()
 
     def _on_table_selection_changed(self, selected, deselected):
-        """テーブルの選択変更時：選択された全フィーチャーを強調表示。"""
+        """テーブルの選択変更時：ラバーバンド/クロスヘアで表示しパン。"""
+        if self._syncing_selection:
+            return
         if not self._locked and not self._plan_active:
             return
-
-        # 選択中の全行からfidを収集
         fids = self._get_selected_fids()
-        self._highlight_features(fids)
+
+        # ── ポイントレイヤー専用パス（一時レイヤーなし）──
+        is_point = (
+            self.data_manager.original_layer and
+            self.data_manager.original_layer.geometryType() == QgsWkbTypes.PointGeometry
+        )
+        if self._plan_active and is_point:
+            self._clear_rubber_bands()
+            if fids:
+                self._show_point_crosshairs(fids)
+            self._render_thumbnail()
+            self._pan_to_highlights()
+            return
+
+        # ── ポリゴン/ライン パス ──
+        if self._plan_active and self._temp_layer_valid() and len(fids) == 1:
+            # 単体選択: レイヤー選択を解除してラバーバンドで表示
+            self._syncing_selection = True
+            self._temp_layer.removeSelection()
+            self._syncing_selection = False
+            self._show_single_rubber_band(fids[0])
+        else:
+            # 複数選択または選択なし: ラバーバンドをクリアして通常選択
+            self._clear_rubber_bands()
+            self._select_features(fids)
         self._render_thumbnail()
         self._pan_to_highlights()
 
-        # QGISレイヤー選択と同期（メインウィンドウへ反映）
-        layer = self.data_manager.original_layer
-        if layer:
-            layer.selectByIds(fids)
+    def _pan_to_selected(self):
+        """選択フィーチャーの位置にキャンバスを移動する（map→table同期用）。"""
+        if self._locked:
+            return
+        layer = (self._temp_layer if self._temp_layer_valid() else None) or self.data_manager.original_layer
+        if not layer:
+            return
+        if not layer.selectedFeatureIds():
+            return
+        bbox = layer.boundingBoxOfSelected()
+        if bbox.isNull():
+            return
+        canvas = self.iface.mapCanvas()
+        canvas.setCenter(bbox.center())
+        canvas.refresh()
 
     def _pan_to_highlights(self):
-        """強調表示位置にキャンバスを移動する（ロック中は移動しない）。
-        ポイント: マーカーの center()（キャンバスCRS済み）を使用。
-        その他: ラバーバンドの asGeometry() から bbox を計算。
-        """
+        """ラバーバンド/マーカーの位置にキャンバスを移動する（table→map用）。"""
         if self._locked:
             return
         canvas = self.iface.mapCanvas()
@@ -1057,6 +1000,8 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
     # ──────────────────────────────────────────────
 
     def _on_selection_changed(self, layer):
+        if self._syncing_selection:
+            return
         if self._locked:
             return
         if not self.data_manager.original_layer:
@@ -1067,6 +1012,22 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         if layer and not self._is_same_source(layer):
             return
         if self._plan_active:
+            # 計画アクティブ中: 同一ソースレイヤーの地図選択をテーブルに反映
+            if not layer:
+                return
+            self._clear_rubber_bands()
+            selected_ids = set(layer.selectedFeatureIds())
+            self._syncing_selection = True
+            self.tableFeatures.selectionModel().clearSelection()
+            for row in range(self.tableFeatures.rowCount()):
+                item = self.tableFeatures.item(row, 0)
+                if item:
+                    fid = item.data(Qt.UserRole)
+                    if fid in selected_ids:
+                        self.tableFeatures.selectRow(row)
+            self._syncing_selection = False
+            if not self._locked:
+                self._pan_to_selected()
             return
         self._process_selection(layer)
 
@@ -1078,6 +1039,172 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         return os.path.normpath(src) == os.path.normpath(
             self.data_manager.original_path
         )
+
+    def _create_temp_layer(self, plan_name):
+        """計画フィーチャーを表示する一時レイヤーを作成してプロジェクトに追加する。"""
+        if not self.data_manager.original_path or not self._current_fids:
+            return
+        # ポイントレイヤーは一時レイヤー不要
+        orig = self.data_manager.original_layer
+        if orig and orig.geometryType() == QgsWkbTypes.PointGeometry:
+            return
+        # プロジェクトレイヤーの source URI をそのまま使う（テーブル名がファイル名と異なる場合に対応）
+        layer_id = self.cmbGpkgLayer.currentData()
+        proj_layer = QgsProject.instance().mapLayer(layer_id) if layer_id else None
+        if proj_layer:
+            source_uri = proj_layer.source()
+        else:
+            path = self.data_manager.original_path
+            layer_name = self.data_manager.layer_name
+            source_uri = f"{path}|layername={layer_name}"
+        temp = QgsVectorLayer(source_uri, plan_name, "ogr")
+        if not temp.isValid():
+            return
+        # プロジェクトレイヤーのCRSを一時レイヤーに適用
+        if proj_layer and proj_layer.crs().isValid():
+            temp.setCrs(proj_layer.crs())
+        fid_str = ",".join(str(f) for f in self._current_fids)
+        temp.setSubsetString(f"fid IN ({fid_str})")
+        self._apply_temp_layer_style(temp)
+        temp.setCustomProperty('gpkg_editor_temp', True)
+        QgsProject.instance().addMapLayer(temp)
+        self._temp_layer = temp
+        self._temp_layer.selectionChanged.connect(self._on_temp_selection_changed)
+
+    def _cleanup_orphan_temp_layers(self):
+        """起動時に前回セッションで残存した一時レイヤーを削除する。"""
+        to_remove = [
+            lid for lid, layer in QgsProject.instance().mapLayers().items()
+            if layer.customProperty('gpkg_editor_temp')
+        ]
+        for lid in to_remove:
+            QgsProject.instance().removeMapLayer(lid)
+
+    def _temp_layer_valid(self):
+        """一時レイヤーが存在し C++ オブジェクトが有効かどうかを返す。"""
+        return self._temp_layer is not None and not sip.isdeleted(self._temp_layer)
+
+    def _remove_temp_layer(self):
+        """一時レイヤーをプロジェクトから削除する。"""
+        self._clear_rubber_bands()
+        if self._temp_layer_valid():
+            try:
+                self._temp_layer.selectionChanged.disconnect(self._on_temp_selection_changed)
+            except Exception:
+                pass
+            QgsProject.instance().removeMapLayer(self._temp_layer.id())
+        self._temp_layer = None
+
+    def _update_temp_layer_subset(self):
+        """一時レイヤーのフィルタを現在のfidsで更新する。"""
+        if not self._temp_layer_valid():
+            return
+        fid_str = ",".join(str(f) for f in self._current_fids)
+        self._temp_layer.setSubsetString(f"fid IN ({fid_str})")
+
+    def _clear_rubber_bands(self):
+        """ラバーバンドとマーカーをすべて削除する。"""
+        for rb in self._rubber_bands:
+            self.iface.mapCanvas().scene().removeItem(rb)
+        self._rubber_bands.clear()
+        for vm in self._vertex_markers:
+            self.iface.mapCanvas().scene().removeItem(vm)
+        self._vertex_markers.clear()
+
+    def _show_point_crosshairs(self, fids):
+        """ポイントフィーチャーを白ハロ＋赤本体のクロスヘアで表示する。"""
+        layer = self.data_manager.original_layer
+        if not layer:
+            return
+        canvas = self.iface.mapCanvas()
+        request = QgsFeatureRequest().setFilterFids(fids)
+        for feat in layer.getFeatures(request):
+            if feat.geometry().isNull():
+                continue
+            pt = feat.geometry().centroid().asPoint()
+            halo = QgsVertexMarker(canvas)
+            halo.setCenter(pt)
+            halo.setIconType(QgsVertexMarker.ICON_CROSS)
+            halo.setColor(QColor(255, 255, 255, 220))
+            halo.setIconSize(16)
+            halo.setPenWidth(3)
+            self._vertex_markers.append(halo)
+            marker = QgsVertexMarker(canvas)
+            marker.setCenter(pt)
+            marker.setIconType(QgsVertexMarker.ICON_CROSS)
+            marker.setColor(QColor(255, 0, 0, 220))
+            marker.setIconSize(14)
+            marker.setPenWidth(1)
+            self._vertex_markers.append(marker)
+
+    def _show_single_rubber_band(self, fid):
+        """指定fid のフィーチャーをラバーバンドで表示する。"""
+        self._clear_rubber_bands()
+        layer = (self._temp_layer if self._temp_layer_valid() else None) if self._plan_active else self.data_manager.original_layer
+        if not layer:
+            return
+        request = QgsFeatureRequest().setFilterFids([fid])
+        feat = next(layer.getFeatures(request), None)
+        if not feat or feat.geometry().isNull():
+            return
+        geom_type = layer.geometryType()
+        rb = QgsRubberBand(self.iface.mapCanvas(), geom_type)
+        rb.setColor(QColor(255, 0, 0, 160))
+        rb.setFillColor(QColor(255, 220, 0, 30))
+        rb.setWidth(2)
+        rb.setToGeometry(feat.geometry(), layer)
+        self._rubber_bands.append(rb)
+
+    def _apply_temp_layer_style(self, layer):
+        """一時レイヤーにスタイルを適用する。"""
+        geom_type = layer.geometryType()
+        if geom_type == QgsWkbTypes.PolygonGeometry:
+            symbol = QgsFillSymbol.createSimple({
+                'color': '0,0,0,0',
+                'outline_color': '255,0,0,200',
+                'outline_width': '0.4',
+                'outline_width_unit': 'Point',
+            })
+            layer.setRenderer(QgsSingleSymbolRenderer(symbol))
+        elif geom_type == QgsWkbTypes.LineGeometry:
+            # 黒1.46pt を下層、黄色0.86pt を上層に重ねる
+            pt = QgsUnitTypes.RenderPoints
+            sl_black = QgsSimpleLineSymbolLayer(QColor(0, 0, 0, 255), 1.7)
+            sl_black.setWidthUnit(pt)
+            sl_yellow = QgsSimpleLineSymbolLayer(QColor(255, 255, 13, 255), 1.5)
+            sl_yellow.setWidthUnit(pt)
+            symbol = QgsLineSymbol()
+            symbol.deleteSymbolLayer(0)
+            symbol.appendSymbolLayer(sl_black)
+            symbol.appendSymbolLayer(sl_yellow)
+            layer.setRenderer(QgsSingleSymbolRenderer(symbol))
+        else:
+            symbol = QgsMarkerSymbol.createSimple({
+                'color': '255,0,0,200',
+                'color_border': '255,0,0,255',
+                'size': '3',
+                'size_unit': 'Point',
+            })
+            layer.setRenderer(QgsSingleSymbolRenderer(symbol))
+
+    def _on_temp_selection_changed(self):
+        """一時レイヤーの選択変更をテーブルに反映する。"""
+        if self._syncing_selection or not self._temp_layer_valid():
+            return
+        selected_ids = set(self._temp_layer.selectedFeatureIds())
+        # 地図からの選択ではラバーバンドをクリア（レイヤー選択で表示）
+        self._clear_rubber_bands()
+        self._syncing_selection = True
+        self.tableFeatures.selectionModel().clearSelection()
+        for row in range(self.tableFeatures.rowCount()):
+            item = self.tableFeatures.item(row, 0)
+            if item:
+                fid = item.data(Qt.UserRole)
+                if fid in selected_ids:
+                    self.tableFeatures.selectRow(row)
+        self._syncing_selection = False
+        if not self._locked:
+            self._pan_to_selected()
 
     def _process_selection(self, layer=None):
         if not self.data_manager.original_layer:
@@ -1147,7 +1274,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._current_fids = []
         self._current_merged_data = []
         self._editing = False
-        self._clear_rubber_bands_base()
         self._update_status_display()
 
     def _update_table(self, fids):
@@ -1205,7 +1331,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._current_merged_data = merged
         self._update_feature_count()
         self._update_status_display()
-        self._update_show_all_display()
 
     # ──────────────────────────────────────────────
     # セル編集
@@ -1371,11 +1496,39 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         )
 
     def _activate_plan(self, name):
-        """計画をアクティブ（ロック）状態にする。"""
+        """計画をアクティブ状態にする。"""
+        self._remove_temp_layer()
         self._plan_active = True
         self._active_plan_name = name
         self.btnPlanAddFeature.setEnabled(True)
         self.btnPlanDeleteFeature.setEnabled(True)
+        self._create_temp_layer(name)
+        self._zoom_to_plan_extent()
+
+    def _zoom_to_plan_extent(self):
+        """計画フィーチャーの範囲にキャンバスをズームする。"""
+        if not self._current_fids or not self.data_manager.original_layer:
+            return
+        layer = (self._temp_layer if self._temp_layer_valid() else None) or self.data_manager.original_layer
+        request = QgsFeatureRequest().setFilterFids(self._current_fids)
+        extent = QgsRectangle()
+        for feat in layer.getFeatures(request):
+            if not feat.geometry().isNull():
+                extent.combineExtentWith(feat.geometry().boundingBox())
+        if extent.isNull():
+            return
+        canvas = self.iface.mapCanvas()
+        layer_crs = layer.crs()
+        canvas_crs = canvas.mapSettings().destinationCrs()
+        if layer_crs.isValid() and canvas_crs.isValid() and layer_crs != canvas_crs:
+            transform = QgsCoordinateTransform(layer_crs, canvas_crs, QgsProject.instance())
+            try:
+                extent = transform.transformBoundingBox(extent)
+            except Exception:
+                pass
+        extent.scale(1.1)
+        canvas.setExtent(extent)
+        canvas.refresh()
 
     def _deactivate_plan(self):
         """計画のアクティブ状態を解除する。"""
@@ -1385,9 +1538,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.btnPlanAddFeature.setText(self.tr('フィーチャーの追加'))
         self.btnPlanAddFeature.setEnabled(False)
         self.btnPlanDeleteFeature.setEnabled(False)
-        self._clear_rubber_bands_base()
-        if not self._locked:
-            self._clear_rubber_bands()
+        self._remove_temp_layer()
 
     def _on_plan_add_feature(self):
         """フィーチャーの追加: 2段階フロー。"""
@@ -1460,7 +1611,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         )
 
         self._update_table(self._current_fids)
-        self._clear_rubber_bands()
+        self._update_temp_layer_subset()
 
         # モードをリセット
         self._feature_add_mode = False
@@ -1538,7 +1689,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         )
 
         self._update_table(self._current_fids)
-        self._clear_rubber_bands()
+        self._update_temp_layer_subset()
         self.lblStatus.setText(
             self.tr('{} 件のフィーチャーを削除しました (計 {} 件)').format(
                 len(remove_fids), len(self._current_fids)

@@ -539,9 +539,12 @@
           </widget>
          </item>
          <item>
-          <widget class="QCheckBox" name="chkShowAll">
+          <widget class="QCheckBox" name="chkLock">
            <property name="text">
-            <string>フィーチャー全件を描画</string>
+            <string>ロック</string>
+           </property>
+           <property name="enabled">
+            <bool>false</bool>
            </property>
           </widget>
          </item>
