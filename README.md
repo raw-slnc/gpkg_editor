@@ -15,6 +15,41 @@ A QGIS plugin for viewing and editing GeoPackage (GPKG) layer attributes with pl
 - **Lock mode**: Freeze the map canvas to prevent accidental panning while keeping selection tools active. While locked, table row selection highlights features in place without moving the canvas, allowing spatial comparison within a fixed view
 - **Map thumbnail**: Visual overview of the current plan's features. Mutually exclusive with the Shortcuts panel
 
+## Team sharing / Data migration
+
+GPKG Editor stores edits and plans in a sidecar file alongside the original GPKG.
+**Both files must be kept together** — sharing only one of them will result in missing edits or plans.
+
+```
+ Folder structure
+ ─────────────────────────────────────────────────────
+  forest.gpkg                ← base template (source data, not directly edited)
+  forest_data.sqlite         ← edits & plans (paired file)
+
+  survey.gpkg
+  survey_data.sqlite
+ ─────────────────────────────────────────────────────
+
+ How they combine at runtime
+
+  forest.gpkg          forest_data.sqlite
+  ┌──────────────┐     ┌──────────────────────┐
+  │ original     │  +  │ edits                │
+  │ geometries   │     │ plan configurations  │
+  │ attributes   │     │ status expressions   │
+  └──────┬───────┘     └──────────┬───────────┘
+         └──────────┬─────────────┘
+                    ▼
+             gpkg_editor table view
+             (merged, non-destructive)
+                    │
+                    ▼ [Export]
+             output.gpkg / output.csv
+```
+
+The sidecar filename is always `<gpkg_name>_data.sqlite` and must reside in the **same directory** as its GPKG.
+When migrating or sharing with a team, copy / move both files together.
+
 ## Column modes
 
 Each column can be set to one of four modes in the column configuration dialog:
