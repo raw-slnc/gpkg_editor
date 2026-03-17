@@ -62,6 +62,8 @@ class GpkgEditor:
 
     def set_language(self, locale):
         """Switch plugin translation at runtime. locale=None uses system locale."""
+        if locale is not None:
+            QSettings().setValue('gpkg_editor/language', locale)
         self._remove_translator()
         loaded_locale = 'ja'
         i18n_dir = os.path.join(self.plugin_dir, 'i18n')
@@ -89,7 +91,8 @@ class GpkgEditor:
 
     def initGui(self):
         """プラグインUIを初期化する。"""
-        self.set_language(None)
+        saved = QSettings().value('gpkg_editor/language', None)
+        self.set_language(saved)
         self.menu = self.tr('GPKG Editor')
         icon_path = os.path.join(self.plugin_dir, 'icon.png')
         icon = QIcon(icon_path)
