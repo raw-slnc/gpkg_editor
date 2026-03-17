@@ -468,8 +468,8 @@ Esta operação não pode ser desfeita. Continuar?</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="198" />
-        <source>保存</source>
-        <translation>Salvar</translation>
+        <source>登録フィーチャーの確定</source>
+        <translation>Confirmar plano</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="199" />
@@ -656,8 +656,8 @@ Esta operação não pode ser desfeita. Continuar?</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="164" />
-        <source>保存</source>
-        <translation>Salvar</translation>
+        <source>登録フィーチャーの確定</source>
+        <translation>Confirmar plano</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="174" />

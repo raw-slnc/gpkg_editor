@@ -468,8 +468,8 @@ Esta acción no se puede deshacer. ¿Continuar?</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="198" />
-        <source>保存</source>
-        <translation>Guardar</translation>
+        <source>登録フィーチャーの確定</source>
+        <translation>Confirmar plan</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="199" />
@@ -656,8 +656,8 @@ Esta acción no se puede deshacer. ¿Continuar?</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="164" />
-        <source>保存</source>
-        <translation>Guardar</translation>
+        <source>登録フィーチャーの確定</source>
+        <translation>Confirmar plan</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="174" />

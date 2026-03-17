@@ -331,6 +331,17 @@ class GpkgDataManager:
         finally:
             conn.close()
 
+    def copy_plan(self, source_name, new_name):
+        plan = self.load_plan(source_name)
+        if not plan:
+            return False
+        return self.save_plan(
+            new_name,
+            plan['fids'],
+            plan['column_config'],
+            plan.get('status_exprs'),
+        )
+
     # ──────────────────────────────────────────────
     # エクスポート / ユーティリティ
     # ──────────────────────────────────────────────

@@ -161,7 +161,7 @@
            <item row="0" column="0">
             <widget class="QPushButton" name="btnPlanSave">
              <property name="text">
-              <string>保存</string>
+              <string>登録フィーチャーの確定</string>
              </property>
              <property name="enabled">
               <bool>false</bool>

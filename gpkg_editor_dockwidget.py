@@ -124,6 +124,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._status_expr2 = ''
         self._current_merged_data = []
         self._feature_add_mode = False  # フィーチャー追加フロー中かどうか
+        self._copy_mode = False  # 計画コピーモード中かどうか
         # GPKGレイヤー一覧を初期化
         self._refresh_layer_combo()
 
@@ -176,6 +177,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         # Enter→編集開始/確定トグル
         self.tableFeatures.installEventFilter(self)
+
+        # 計画コピーモード: ポップアップが閉じたときにキャンセル検知
+        self.cmbPlan.view().installEventFilter(self)
         self.retranslate_ui()
 
         # 前回セッションで保存された一時レイヤーを起動時に削除
@@ -217,7 +221,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             if first_data is None:
                 self.cmbPlan.setItemText(0, self.tr('-- 計画を選択 --'))
         if self._plan_active or self._get_visible_cols():
-            self.btnPlanSave.setText(self.tr('保存'))
+            self.btnPlanSave.setText(self.tr('登録フィーチャーの確定'))
         else:
             self.btnPlanSave.setText(self.tr('計画作成を開始する'))
         self.btnPlanDelete.setText(self.tr('削除'))
@@ -342,6 +346,11 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                             self.tableFeatures.editItem(item)
                             return True
                 return False
+
+        # 計画コピーモード中にポップアップが閉じた → キャンセル
+        if obj is self.cmbPlan.view() and event.type() == QEvent.Hide:
+            if self._copy_mode:
+                QTimer.singleShot(0, self._exit_copy_mode)
 
         return super().eventFilter(obj, event)
 
@@ -704,8 +713,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         dlg = ColumnConfigDialog(columns, self.column_config, self)
         if dlg.exec_() == ColumnConfigDialog.Accepted:
             self.column_config = dlg.get_config()
+            self._mark_plan_dirty()
             if self._get_visible_cols():
-                self.btnPlanSave.setText(self.tr('保存'))
+                self.btnPlanSave.setText(self.tr('登録フィーチャーの確定'))
             if self._current_fids:
                 self._update_table(self._current_fids)
             else:
@@ -1246,6 +1256,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             return
 
         self._current_fids = fids
+        self._mark_plan_dirty()
         self._update_table(fids)
         self.lblStatus.setText(
             self.tr('{} 件のフィーチャーが見つかりました').format(len(fids))
@@ -1386,16 +1397,86 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self.lineEditPlanName.clear()
             self.lblFeatureCount.setText(self.tr('フィーチャー数: -'))
 
+    _COPY_SENTINEL = '__copy_plan__'
+
+    def _enter_copy_mode(self):
+        self._copy_mode = True
+        self.lblStatus.setText(
+            self.tr('コピー元の計画を選択してください（Escでキャンセル）')
+        )
+        self.cmbPlan.blockSignals(True)
+        self.cmbPlan.clear()
+        for name in self.data_manager.list_plans():
+            self.cmbPlan.addItem(name)
+        self.cmbPlan.setCurrentIndex(-1)
+        self.cmbPlan.blockSignals(False)
+        QTimer.singleShot(0, self.cmbPlan.showPopup)
+
+    def _exit_copy_mode(self):
+        if not self._copy_mode:
+            return
+        self._copy_mode = False
+        self._refresh_plan_combo()
+        if self._active_plan_name:
+            self.lblStatus.setText(
+                self.tr('計画「{}」を読み込みました ({} 件)').format(
+                    self._active_plan_name, len(self._current_fids)
+                )
+            )
+        else:
+            self.lblStatus.setText(self.tr('GPKGレイヤーを選択してください'))
+
+    def _unique_copy_name(self, source_name):
+        existing = set(self.data_manager.list_plans())
+        i = 0
+        while True:
+            name = f'{source_name}_{i:03d}'
+            if name not in existing:
+                return name
+            i += 1
+
+    def _mark_plan_dirty(self):
+        self.btnPlanSave.setStyleSheet(
+            'QPushButton { background-color: #e8a020; color: white; }'
+        )
+
+    def _mark_plan_clean(self):
+        self.btnPlanSave.setStyleSheet('')
+
+    def _do_copy_plan(self, source_name):
+        new_name = self._unique_copy_name(source_name)
+        self.data_manager.copy_plan(source_name, new_name)
+        self._refresh_plan_combo()
+        idx = self.cmbPlan.findText(new_name)
+        if idx >= 0:
+            self.cmbPlan.setCurrentIndex(idx)
+
     def _refresh_plan_combo(self):
         self.cmbPlan.blockSignals(True)
         self.cmbPlan.clear()
         self.cmbPlan.addItem(self.tr('-- 計画を選択 --'))
-        for name in self.data_manager.list_plans():
+        plans = self.data_manager.list_plans()
+        for name in plans:
             self.cmbPlan.addItem(name)
+        if plans:
+            self.cmbPlan.insertSeparator(self.cmbPlan.count())
+            self.cmbPlan.addItem(self.tr('-- 計画をコピーして開始 --'))
+            self.cmbPlan.setItemData(
+                self.cmbPlan.count() - 1, self._COPY_SENTINEL
+            )
         self.cmbPlan.setCurrentIndex(0)
         self.cmbPlan.blockSignals(False)
 
     def _on_plan_selected(self, index):
+        if self._copy_mode:
+            if index >= 0:
+                source_name = self.cmbPlan.itemText(index)
+                self._copy_mode = False
+                self._do_copy_plan(source_name)
+            return
+        if self.cmbPlan.itemData(index) == self._COPY_SENTINEL:
+            self._enter_copy_mode()
+            return
         if index <= 0:
             self._deactivate_plan()
             self._clear_table()
@@ -1420,7 +1501,8 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._status_expr2 = status_exprs.get('expr2', '')
 
         self._activate_plan(plan_name)
-        self.btnPlanSave.setText(self.tr('保存'))
+        self._mark_plan_clean()
+        self.btnPlanSave.setText(self.tr('登録フィーチャーの確定'))
         self._update_table(self._current_fids)
         self._render_thumbnail()
         self.lblStatus.setText(
@@ -1464,6 +1546,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self.cmbPlan.blockSignals(False)
 
         self._activate_plan(name)
+        self._mark_plan_clean()
         self.lblStatus.setText(self.tr('計画「{}」を保存しました').format(name))
 
     def _on_plan_delete(self):
@@ -1535,6 +1618,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._plan_active = False
         self._active_plan_name = None
         self._feature_add_mode = False
+        self._mark_plan_clean()
         self.btnPlanAddFeature.setText(self.tr('フィーチャーの追加'))
         self.btnPlanAddFeature.setEnabled(False)
         self.btnPlanDeleteFeature.setEnabled(False)
@@ -1609,6 +1693,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self._active_plan_name, self._current_fids, self.column_config,
             self._get_status_exprs(),
         )
+        self._mark_plan_clean()
 
         self._update_table(self._current_fids)
         self._update_temp_layer_subset()
@@ -1687,6 +1772,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self._active_plan_name, self._current_fids, self.column_config,
             self._get_status_exprs(),
         )
+        self._mark_plan_clean()
 
         self._update_table(self._current_fids)
         self._update_temp_layer_subset()
