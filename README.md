@@ -114,16 +114,16 @@ Track how each feature's attributes have changed over time. Every edit is record
 
 - QGIS 3.16 or later
 
-## License
-
-This plugin is distributed under the GNU General Public License v2 or later.
-See [LICENSE](LICENSE) for details.
-
 ## Support
 
 If this plugin is helpful for your work, you can support the development here:
 https://paypal.me/rawslnc
 
+## License
+
+This plugin is distributed under the GNU General Public License v2 or later.
+See [LICENSE](LICENSE) for details.
+
 ## Author
 
-(C) 2026 por Hideharu Masai
+Copyright (C) 2026 Hideharu Masai
