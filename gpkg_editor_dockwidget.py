@@ -1,17 +1,25 @@
 # -*- coding: utf-8 -*-
 import os
+import re
 import sip
+from datetime import datetime
 
 from qgis.PyQt import uic
 from qgis.PyQt.QtWidgets import (
+    QAbstractItemView,
     QApplication,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
+    QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPlainTextEdit,
     QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QSplitter,
     QTableWidgetItem,
     QMessageBox,
@@ -19,8 +27,8 @@ from qgis.PyQt.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from qgis.PyQt.QtCore import Qt, QEvent, QItemSelection, QItemSelectionModel, QTimer
-from qgis.PyQt.QtGui import QColor, QBrush, QPainter, QPen, QPixmap
+from qgis.PyQt.QtCore import Qt, QEvent, QItemSelection, QItemSelectionModel, QTimer, QUrl
+from qgis.PyQt.QtGui import QColor, QBrush, QPainter, QPen, QPixmap, QDesktopServices
 from qgis.core import (
     QgsProject,
     QgsCoordinateTransform,
@@ -76,12 +84,13 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._plugin_dir = plugin_dir or os.path.dirname(__file__)
         self._set_language_callback = set_language_callback
         self._get_language_callback = get_language_callback
-        self._language_cycle = ['ja', 'en', 'es', 'pt']
+        self._language_cycle = ['ja', 'en', 'es', 'pt', 'de']
         self._language_labels = {
             'ja': '日本語',
             'en': 'English',
             'es': 'Español',
             'pt': 'Português',
+            'de': 'Deutsch',
         }
 
         # 左パネル/右パネルをQSplitterに収める
@@ -152,6 +161,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self.tableFeatures.ExtendedSelection
         )
 
+        # テーブルのフレーム枠線を除去（下辺の横線を消す）
+        self.tableFeatures.setFrameShape(QFrame.NoFrame)
+
         # テーブル行選択→マップ中心移動（ロック中のみ有効）＋ステータス更新
         self.tableFeatures.selectionModel().currentRowChanged.connect(
             self._on_table_row_changed
@@ -165,7 +177,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         # プロジェクトのレイヤー追加/削除を監視してコンボを自動更新
         QgsProject.instance().layersAdded.connect(self._refresh_layer_combo)
-        QgsProject.instance().layersRemoved.connect(self._refresh_layer_combo)
+        QgsProject.instance().layersRemoved.connect(self._on_layers_removed)
 
         # マップ選択変更の監視
         self.iface.mapCanvas().selectionChanged.connect(self._on_selection_changed)
@@ -180,6 +192,14 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         # 計画コピーモード: ポップアップが閉じたときにキャンセル検知
         self.cmbPlan.view().installEventFilter(self)
+
+        # 履歴パネル
+        self._history_mode = False
+        self._history_scroll_layout = None
+        self._build_history_panel()
+        self.btnHistory.setEnabled(False)
+        self.btnHistory.toggled.connect(self._on_history_toggled)
+
         self.retranslate_ui()
 
         # 前回セッションで保存された一時レイヤーを起動時に削除
@@ -262,7 +282,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.lblLegendEditable.setText(self.tr('■ 編集可能'))
         self.lblLegendEdited.setText(self.tr('■ 編集済み'))
         self.lblLegendInfo.setText(self.tr('■ 情報（後列）'))
+        self.btnHistory.setText(self.tr('履歴'))
         self._update_language_button()
+        if self._history_mode:
+            self._refresh_history_panel()
 
     def eventFilter(self, obj, event):
         # ロック中: パン・ズームツール操作のみブロック（選択ツール等は通す）
@@ -378,7 +401,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             pass
         try:
             QgsProject.instance().layersAdded.disconnect(self._refresh_layer_combo)
-            QgsProject.instance().layersRemoved.disconnect(self._refresh_layer_combo)
+            QgsProject.instance().layersRemoved.disconnect(self._on_layers_removed)
         except TypeError:
             pass
         self.data_manager.close()
@@ -623,7 +646,15 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
     # GPKGレイヤー コンボボックス
     # ──────────────────────────────────────────────
 
-    def _refresh_layer_combo(self, *_args):
+    def _on_layers_removed(self, layer_ids):
+        """レイヤー削除時に一時レイヤーと描画のクリーンアップを行ってからコンボを更新する。"""
+        # パターン2: 計画の一時レイヤーが外部から削除された場合
+        if self._temp_layer_valid() and self._temp_layer.id() in layer_ids:
+            self._clear_rubber_bands()
+            self._temp_layer = None
+        self._refresh_layer_combo(layer_ids=layer_ids)
+
+    def _refresh_layer_combo(self, *_args, layer_ids=None):
         """プロジェクト内のGPKGレイヤーでコンボボックスを更新する。"""
         prev_id = self.cmbGpkgLayer.currentData()
 
@@ -640,6 +671,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             # （他プラグインがレジストリ未削除のままツリーからだけ消した場合の対策）
             if layer_tree.findLayer(layer.id()) is None:
                 continue
+            # プラグインが内部で作成した一時レイヤーは除外
+            if layer.customProperty('gpkg_editor_temp'):
+                continue
             src = layer.source().split('|')[0]
             if not src.lower().endswith('.gpkg'):
                 continue
@@ -649,6 +683,11 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         self.cmbGpkgLayer.setCurrentIndex(restore_idx)
         self.cmbGpkgLayer.blockSignals(False)
+
+        # パターン1: 選択中のGPKGレイヤーが削除されてコンボが index 0 に戻った場合
+        # blockSignals中は _on_layer_selected が発火しないため明示的にクリーンアップ
+        if restore_idx == 0 and prev_id is not None:
+            self._on_layer_selected(0)
 
     def _on_layer_selected(self, index):
         """コンボボックスでレイヤーが選択された時。"""
@@ -677,10 +716,17 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         if not layer:
             return
 
-        gpkg_path = layer.source().split('|')[0]
+        src = layer.source()
+        parts = src.split('|')
+        gpkg_path = parts[0]
+        layername = None
+        for part in parts[1:]:
+            if part.startswith('layername='):
+                layername = part[len('layername='):]
+                break
 
         try:
-            self.data_manager.load_gpkg(gpkg_path)
+            self.data_manager.load_gpkg(gpkg_path, layername=layername)
         except ValueError as e:
             QMessageBox.critical(self, self.tr('エラー'), str(e))
             return
@@ -1042,13 +1088,21 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._process_selection(layer)
 
     def _is_same_source(self, layer):
-        """レイヤーのソースがオリジナルGPKGと同じか判定する。"""
+        """レイヤーのソースがオリジナルGPKGと同じか判定する（パスとレイヤー名の両方を比較）。"""
         if not layer or not self.data_manager.original_path:
             return False
-        src = layer.source().split('|')[0]
-        return os.path.normpath(src) == os.path.normpath(
-            self.data_manager.original_path
-        )
+        parts = layer.source().split('|')
+        if os.path.normpath(parts[0]) != os.path.normpath(self.data_manager.original_path):
+            return False
+        # layername が取得できる場合は照合する（単一レイヤーGPKGは layername なしの場合あり）
+        layername = None
+        for part in parts[1:]:
+            if part.startswith('layername='):
+                layername = part[len('layername='):]
+                break
+        if layername is not None and self.data_manager.layer_name:
+            return layername == self.data_manager.layer_name
+        return True
 
     def _create_temp_layer(self, plan_name):
         """計画フィーチャーを表示する一時レイヤーを作成してプロジェクトに追加する。"""
@@ -1104,10 +1158,14 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                 pass
             QgsProject.instance().removeMapLayer(self._temp_layer.id())
         self._temp_layer = None
+        self.iface.mapCanvas().refresh()
 
     def _update_temp_layer_subset(self):
         """一時レイヤーのフィルタを現在のfidsで更新する。"""
         if not self._temp_layer_valid():
+            return
+        if not self._current_fids:
+            self._temp_layer.setSubsetString('fid IN (-1)')
             return
         fid_str = ",".join(str(f) for f in self._current_fids)
         self._temp_layer.setSubsetString(f"fid IN ({fid_str})")
@@ -1585,6 +1643,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._active_plan_name = name
         self.btnPlanAddFeature.setEnabled(True)
         self.btnPlanDeleteFeature.setEnabled(True)
+        self.btnHistory.setEnabled(True)
         self._create_temp_layer(name)
         self._zoom_to_plan_extent()
 
@@ -1622,7 +1681,16 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.btnPlanAddFeature.setText(self.tr('フィーチャーの追加'))
         self.btnPlanAddFeature.setEnabled(False)
         self.btnPlanDeleteFeature.setEnabled(False)
+        # 履歴モードを閉じる
+        if self._history_mode:
+            self.btnHistory.blockSignals(True)
+            self.btnHistory.setChecked(False)
+            self.btnHistory.blockSignals(False)
+            self._on_history_toggled(False)
+        self.btnHistory.setEnabled(False)
         self._remove_temp_layer()
+        if self.data_manager.original_layer:
+            self.data_manager.original_layer.removeSelection()
 
     def _on_plan_add_feature(self):
         """フィーチャーの追加: 2段階フロー。"""
@@ -1939,21 +2007,31 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         if not ok:
             return
 
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            self.tr('GPKG出力先を選択'),
-            '',
-            self.tr('GeoPackage Files (*.gpkg);;All Files (*)'),
-        )
-        if not path:
-            return
+        plan_name = self._active_plan_name or 'noplan'
+        layer_name = self.data_manager.layer_name or 'layer'
+        folder = self._get_export_folder()
+        num = self._next_export_number(folder, plan_name, layer_name)
+        ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = (self._sanitize_filename(plan_name) + '_'
+                    + self._sanitize_filename(layer_name) + '_' + num + '_' + ts + '.gpkg')
+        path = os.path.join(folder, filename)
 
         try:
             self.data_manager.export_gpkg(path, fids=fids)
+            feature_count = len(fids) if fids is not None else self.data_manager.original_layer.featureCount()
+            edited_col_count = self._count_editable_columns()
+            try:
+                author = os.getlogin()
+            except Exception:
+                author = ''
+            self.data_manager.save_export_history(
+                plan_name, filename, 'gpkg', feature_count, edited_col_count, author)
+            if self._history_mode:
+                self._refresh_history_panel()
             QMessageBox.information(
                 self,
                 self.tr('完了'),
-                self.tr('GPKGファイルを出力しました:\n{}').format(path),
+                self.tr('{} に保存されました').format(path),
             )
         except Exception as e:
             QMessageBox.critical(
@@ -2036,21 +2114,31 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         if not ok:
             return
 
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            self.tr('CSV出力先を選択'),
-            '',
-            self.tr('CSV Files (*.csv);;All Files (*)'),
-        )
-        if not path:
-            return
+        plan_name = self._active_plan_name or 'noplan'
+        layer_name = self.data_manager.layer_name or 'layer'
+        folder = self._get_export_folder()
+        num = self._next_export_number(folder, plan_name, layer_name)
+        ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = (self._sanitize_filename(plan_name) + '_'
+                    + self._sanitize_filename(layer_name) + '_' + num + '_' + ts + '.csv')
+        path = os.path.join(folder, filename)
 
         try:
             self.data_manager.export_csv(path, fids=fids)
+            feature_count = len(fids) if fids is not None else self.data_manager.original_layer.featureCount()
+            edited_col_count = self._count_editable_columns()
+            try:
+                author = os.getlogin()
+            except Exception:
+                author = ''
+            self.data_manager.save_export_history(
+                plan_name, filename, 'csv', feature_count, edited_col_count, author)
+            if self._history_mode:
+                self._refresh_history_panel()
             QMessageBox.information(
                 self,
                 self.tr('完了'),
-                self.tr('CSVファイルを出力しました:\n{}').format(path),
+                self.tr('{} に保存されました').format(path),
             )
         except Exception as e:
             QMessageBox.critical(
@@ -2058,3 +2146,350 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                 self.tr('エラー'),
                 self.tr('CSV出力に失敗しました: {}').format(e),
             )
+
+    # ──────────────────────────────────────────────
+    # エクスポートユーティリティ
+    # ──────────────────────────────────────────────
+
+    def _count_editable_columns(self):
+        """現在の column_config で編集モードのカラム数を返す。"""
+        return sum(1 for v in self.column_config.values() if v == COLUMN_EDITABLE)
+
+    def _get_export_folder(self):
+        """出力フォルダ (GPKG_Editor_exports) のパスを返す。なければ作成する。"""
+        proj_path = QgsProject.instance().absoluteFilePath()
+        if proj_path:
+            base_dir = os.path.dirname(proj_path)
+        elif self.data_manager.original_path:
+            base_dir = os.path.dirname(self.data_manager.original_path)
+        else:
+            base_dir = os.path.expanduser('~')
+        folder = os.path.join(base_dir, 'GPKG_Editor_exports')
+        os.makedirs(folder, exist_ok=True)
+        return folder
+
+    def _next_export_number(self, folder, plan_name, layer_name):
+        """フォルダ内の既存ファイルをスキャンし、次の通し番号（4桁）を返す。"""
+        prefix = self._sanitize_filename(plan_name) + '_' + self._sanitize_filename(layer_name) + '_'
+        pattern = re.compile(
+            r'^' + re.escape(prefix) + r'(\d{4})_\d{8}_\d{6}\.(gpkg|csv)$',
+            re.IGNORECASE,
+        )
+        max_num = 0
+        if os.path.isdir(folder):
+            for fname in os.listdir(folder):
+                m = pattern.match(fname)
+                if m:
+                    max_num = max(max_num, int(m.group(1)))
+        return str(max_num + 1).zfill(4)
+
+    @staticmethod
+    def _sanitize_filename(name):
+        """ファイル名に使えない文字を除去する。"""
+        return re.sub(r'[\\/:*?"<>|]', '_', name)
+
+    # ──────────────────────────────────────────────
+    # 履歴パネル
+    # ──────────────────────────────────────────────
+
+    def _build_history_panel(self):
+        """エクスポート履歴パネルを構築して rightPanel の tableFeatures 直後に挿入する。"""
+        panel = QWidget()
+        vlay = QVBoxLayout(panel)
+        vlay.setContentsMargins(0, 0, 0, 0)
+        vlay.setSpacing(4)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setFrameShape(QFrame.NoFrame)
+
+        contents = QWidget()
+        self._history_scroll_layout = QVBoxLayout(contents)
+        self._history_scroll_layout.setContentsMargins(0, 0, 0, 0)
+        self._history_scroll_layout.setSpacing(2)
+        self._history_scroll_layout.addStretch()
+        scroll.setWidget(contents)
+        vlay.addWidget(scroll)
+
+        rlay = self.rightPanel.layout()
+        for i in range(rlay.count()):
+            item = rlay.itemAt(i)
+            if item and item.widget() == self.tableFeatures:
+                rlay.insertWidget(i + 1, panel)
+                break
+
+        panel.setVisible(False)
+        self._history_panel = panel
+
+    def _on_history_toggled(self, checked):
+        """履歴ボタントグル: 履歴パネルとテーブルを切り替える。"""
+        self._history_mode = checked
+        if checked:
+            self.btnHistory.setStyleSheet(
+                'QPushButton { background-color: #4a90d9; color: white; }'
+            )
+            self.tableFeatures.setVisible(False)
+            self._history_panel.setVisible(True)
+            self._refresh_history_panel()
+        else:
+            self.btnHistory.setStyleSheet('')
+            self._history_panel.setVisible(False)
+            self.tableFeatures.setVisible(True)
+
+    def _refresh_history_panel(self):
+        """エクスポート履歴パネルを再構築する（新しい順）。"""
+        lay = self._history_scroll_layout
+        while lay.count() > 1:
+            item = lay.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        records = []
+        if self._active_plan_name:
+            records = self.data_manager.list_export_history(self._active_plan_name)
+
+        if not records:
+            lbl = QLabel(self.tr('エクスポート履歴はありません'))
+            lbl.setStyleSheet('color: #999999; font-size: 11px;')
+            lbl.setAlignment(Qt.AlignCenter)
+            lay.insertWidget(0, lbl)
+            return
+
+        folder = self._get_export_folder()
+        for rec in records:
+            if rec['is_deleted']:
+                widget = self._build_export_history_deleted_row(rec)
+            elif not os.path.exists(os.path.join(folder, rec['filename'])):
+                widget = self._build_export_history_missing_row(rec)
+            else:
+                widget = self._build_export_history_row(rec)
+            lay.insertWidget(lay.count() - 1, widget)
+
+    def _build_export_history_missing_row(self, rec):
+        """ファイルがディレクトリから削除された場合の1行メッセージ行を返す。"""
+        frame = QFrame()
+        frame.setFrameShape(QFrame.StyledPanel)
+        frame.setStyleSheet(
+            'QFrame { border: 1px solid #dddddd; border-radius: 3px; background: #fff8e1; }'
+        )
+        lay = QHBoxLayout(frame)
+        lay.setContentsMargins(6, 4, 6, 4)
+        msg = self.tr('{}はディレクトリから削除されました。').format(rec['filename'])
+        lbl = QLabel(msg)
+        lbl.setStyleSheet('font-size: 11px; color: #b8860b;')
+        lay.addWidget(lbl)
+        return frame
+
+    def _build_export_history_deleted_row(self, rec):
+        """削除済みレコードの1行メッセージ行を返す。"""
+        frame = QFrame()
+        frame.setFrameShape(QFrame.StyledPanel)
+        frame.setStyleSheet(
+            'QFrame { border: 1px solid #dddddd; border-radius: 3px; background: #f8f8f8; }'
+        )
+        lay = QHBoxLayout(frame)
+        lay.setContentsMargins(6, 4, 6, 4)
+        msg = self.tr('{}は削除されました。').format(rec['filename'])
+        lbl = QLabel(msg)
+        lbl.setStyleSheet('font-size: 11px; color: #999999;')
+        lay.addWidget(lbl)
+        return frame
+
+    def _build_export_history_row(self, rec):
+        """エクスポート履歴1行のウィジェットを返す。"""
+        frame = QFrame()
+        frame.setFrameShape(QFrame.StyledPanel)
+        frame.setStyleSheet('QFrame { border: 1px solid #cccccc; border-radius: 3px; }')
+
+        grid = QGridLayout(frame)
+        grid.setContentsMargins(4, 3, 4, 3)
+        grid.setSpacing(3)
+        grid.setColumnStretch(1, 1)
+
+        is_gpkg = rec['file_type'] == 'gpkg'
+        info = (f"{rec['filename']}  |  {rec['exported_at']}  |  "
+                f"{rec['feature_count']}{self.tr('件')}  |  "
+                f"{rec['edited_col_count']}{self.tr('編集列')}")
+        lbl_info = QLabel(info)
+        lbl_info.setStyleSheet('font-size: 11px;')
+        lbl_info.setWordWrap(False)
+        lbl_info.setFixedHeight(18)
+
+        btn_action = QPushButton(self.tr('読込') if is_gpkg else self.tr('表示'))
+        btn_action.setFixedHeight(22)
+        btn_action.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        btn_delete = QPushButton(self.tr('削除'))
+        btn_delete.setFixedHeight(22)
+        btn_delete.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+
+        edit_author = QLineEdit(rec['author'])
+        edit_author.setPlaceholderText(self.tr('計画者'))
+        edit_author.setFixedHeight(22)
+        edit_memo = QLineEdit(rec['memo'])
+        edit_memo.setPlaceholderText(self.tr('メモ'))
+        edit_memo.setFixedHeight(22)
+
+        btn_col = QVBoxLayout()
+        btn_col.setSpacing(2)
+        btn_col.addWidget(btn_action)
+        btn_col.addWidget(btn_delete)
+        btn_widget = QWidget()
+        btn_widget.setLayout(btn_col)
+        btn_widget.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
+
+        author_memo = QHBoxLayout()
+        author_memo.setSpacing(4)
+        author_memo.addWidget(edit_author)
+        author_memo.addWidget(edit_memo)
+
+        right_col = QVBoxLayout()
+        right_col.setSpacing(2)
+        right_col.addWidget(lbl_info)
+        right_col.addLayout(author_memo)
+        right_widget = QWidget()
+        right_widget.setLayout(right_col)
+
+        grid.addWidget(btn_widget,   0, 0, 2, 1)
+        grid.addWidget(right_widget, 0, 1, 2, 1)
+
+        rec_id = rec['id']
+        rec_filename = rec['filename']
+        frame._filename = rec_filename
+
+        if is_gpkg:
+            btn_action.clicked.connect(
+                lambda _, rid=rec_id, fn=rec_filename, f=frame:
+                    self._on_export_history_load(rid, fn, f))
+        else:
+            btn_action.clicked.connect(
+                lambda _, fn=rec_filename, f=frame:
+                    self._on_export_history_show(fn, f))
+
+        btn_delete.clicked.connect(
+            lambda _, rid=rec_id, f=frame: self._on_export_history_delete(rid, f))
+
+        edit_author.editingFinished.connect(
+            lambda rid=rec_id, w=edit_author: self.data_manager.update_export_history_field(
+                rid, 'author', w.text()))
+        edit_memo.editingFinished.connect(
+            lambda rid=rec_id, w=edit_memo: self.data_manager.update_export_history_field(
+                rid, 'memo', w.text()))
+
+        return frame
+
+    @staticmethod
+    def _grayout_row(frame):
+        """履歴行をグレーアウトして操作不可にする。"""
+        frame.setStyleSheet(
+            'QFrame { border: 1px solid #dddddd; border-radius: 3px; background: #f0f0f0; }'
+        )
+        frame.setEnabled(False)
+
+    def _on_export_history_load(self, record_id, filename, frame):
+        """GPKG エクスポート履歴を QGIS レイヤーとして読み込む（計画レイヤー直下）。"""
+        folder = self._get_export_folder()
+        path = os.path.join(folder, filename)
+        if not os.path.exists(path):
+            QMessageBox.warning(self, self.tr('エラー'),
+                                self.tr('ファイルが見つかりません:\n{}').format(path))
+            self._grayout_row(frame)
+            return
+
+        layer_name = os.path.splitext(filename)[0]
+        layer = QgsVectorLayer(path, layer_name, 'ogr')
+        if not layer.isValid():
+            QMessageBox.warning(self, self.tr('エラー'),
+                                self.tr('レイヤーの読み込みに失敗しました:\n{}').format(path))
+            self._grayout_row(frame)
+            return
+
+        QgsProject.instance().addMapLayer(layer, False)
+
+        # 計画レイヤー直下に挿入
+        root = QgsProject.instance().layerTreeRoot()
+        ref_node = None
+        if self._temp_layer_valid():
+            ref_node = root.findLayer(self._temp_layer.id())
+        if ref_node and ref_node.parent():
+            parent = ref_node.parent()
+            idx = parent.children().index(ref_node)
+            parent.insertLayer(idx + 1, layer)
+        else:
+            root.insertLayer(0, layer)
+
+    def _on_export_history_show(self, filename, frame):
+        """CSV エクスポート履歴をファイルマネージャーで表示する。"""
+        folder = self._get_export_folder()
+        path = os.path.join(folder, filename)
+        if not os.path.exists(path):
+            QMessageBox.warning(self, self.tr('エラー'),
+                                self.tr('ファイルが見つかりません:\n{}').format(path))
+            self._grayout_row(frame)
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path)))
+
+    def _on_export_history_delete(self, record_id, frame):
+        """エクスポート履歴レコードを削除する（確認あり）。ファイル実体も削除しソフトデリート。"""
+        filename = getattr(frame, '_filename', '')
+        folder = self._get_export_folder()
+        path = os.path.join(folder, filename)
+
+        # プロジェクト内でこのファイルを使用中のレイヤーを検索
+        using_layers = [
+            layer for layer in QgsProject.instance().mapLayers().values()
+            if os.path.normpath(layer.source().split('|')[0]) == os.path.normpath(path)
+        ]
+
+        if using_layers:
+            msg = self.tr(
+                'このファイルはレイヤーで使用中です。\n'
+                '削除するとレイヤーも除去されます。\n\n'
+                '削除しますか？'
+            )
+        else:
+            msg = self.tr('この履歴レコードを削除しますか？')
+
+        ret = QMessageBox.question(
+            self,
+            self.tr('削除の確認'),
+            msg,
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if ret != QMessageBox.Yes:
+            return
+
+        # 使用中レイヤーをプロジェクトから除去
+        for layer in using_layers:
+            QgsProject.instance().removeMapLayer(layer.id())
+
+        # ファイル実体を削除
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+            except Exception:
+                pass
+
+        # DB をソフトデリート
+        self.data_manager.delete_export_history(record_id)
+
+        # 行の中身を「削除されました」1行メッセージに差し替え
+        old_layout = frame.layout()
+        while old_layout.count():
+            item = old_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                sub = item.layout()
+                while sub.count():
+                    si = sub.takeAt(0)
+                    if si.widget():
+                        si.widget().deleteLater()
+
+        msg = self.tr('{}は削除されました。').format(filename)
+        lbl = QLabel(msg)
+        lbl.setStyleSheet('font-size: 11px; color: #999999; padding: 4px;')
+        old_layout.addWidget(lbl)
+        frame.setStyleSheet(
+            'QFrame { border: 1px solid #dddddd; border-radius: 3px; background: #f8f8f8; }'
+        )

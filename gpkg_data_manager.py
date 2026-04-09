@@ -30,14 +30,20 @@ class GpkgDataManager:
         self.layer_name = None
         self._db_path = None        # 管理用SQLiteパス
 
-    def load_gpkg(self, path):
-        """オリジナルGPKGを読み込む。"""
+    def load_gpkg(self, path, layername=None):
+        """オリジナルGPKGを読み込む。layername を指定すると複数レイヤーGPKGで正しいレイヤーを開く。"""
         self.original_path = path
         base, _ = os.path.splitext(path)
         self._db_path = base + '_data.sqlite'
-        self.layer_name = os.path.splitext(os.path.basename(path))[0]
 
-        self.original_layer = QgsVectorLayer(path, self.layer_name + '_original', 'ogr')
+        if layername:
+            self.layer_name = layername
+            uri = f'{path}|layername={layername}'
+        else:
+            self.layer_name = os.path.splitext(os.path.basename(path))[0]
+            uri = path
+
+        self.original_layer = QgsVectorLayer(uri, self.layer_name + '_original', 'ogr')
         if not self.original_layer.isValid():
             raise ValueError(f'GPKGファイルを読み込めません: {path}')
 
@@ -180,6 +186,26 @@ class GpkgDataManager:
                 PRIMARY KEY (orig_fid, col_name)
             )
         ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS export_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                plan_name TEXT NOT NULL,
+                exported_at TEXT NOT NULL,
+                filename TEXT NOT NULL,
+                file_type TEXT NOT NULL,
+                feature_count INTEGER NOT NULL DEFAULT 0,
+                edited_col_count INTEGER NOT NULL DEFAULT 0,
+                author TEXT NOT NULL DEFAULT '',
+                memo TEXT NOT NULL DEFAULT '',
+                is_deleted INTEGER NOT NULL DEFAULT 0
+            )
+        ''')
+        # 既存DBへの列追加（マイグレーション）
+        try:
+            conn.execute('ALTER TABLE export_history ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0')
+            conn.commit()
+        except Exception:
+            pass
         conn.commit()
         return conn
 
@@ -409,6 +435,9 @@ class GpkgDataManager:
             writer_options,
         )
 
+        if writer.hasError() != QgsVectorFileWriter.NoError:
+            raise IOError(f'GPKGライターの初期化に失敗しました: {writer.errorMessage()}')
+
         for orig_feat in self.original_layer.getFeatures(request):
             fid = orig_feat.id()
             new_feat = QgsFeature(fields)
@@ -453,6 +482,89 @@ class GpkgDataManager:
                         row.append(val if val is not None else '')
                 writer.writerow(row)
         return True
+
+    # ──────────────────────────────────────────────
+    # エクスポート履歴
+    # ──────────────────────────────────────────────
+
+    def save_export_history(self, plan_name, filename, file_type,
+                            feature_count, edited_col_count, author=''):
+        """エクスポート結果を export_history に記録する。"""
+        conn = self._open_db()
+        if not conn:
+            return None
+        try:
+            from datetime import datetime
+            exported_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            cur = conn.execute(
+                'INSERT INTO export_history '
+                '(plan_name, exported_at, filename, file_type, '
+                ' feature_count, edited_col_count, author, memo) '
+                'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                (plan_name, exported_at, filename, file_type,
+                 feature_count, edited_col_count, author, ''),
+            )
+            conn.commit()
+            return cur.lastrowid
+        finally:
+            conn.close()
+
+    def list_export_history(self, plan_name):
+        """エクスポート履歴を新しい順で返す（削除済みフラグも含む）。"""
+        if not self._db_path or not os.path.exists(self._db_path):
+            return []
+        conn = sqlite3.connect(self._db_path)
+        try:
+            rows = conn.execute(
+                'SELECT id, exported_at, filename, file_type, '
+                'feature_count, edited_col_count, author, memo, is_deleted '
+                'FROM export_history WHERE plan_name = ? '
+                'ORDER BY exported_at DESC',
+                (plan_name,),
+            ).fetchall()
+            return [
+                {'id': r[0], 'exported_at': r[1], 'filename': r[2],
+                 'file_type': r[3], 'feature_count': r[4],
+                 'edited_col_count': r[5], 'author': r[6] or '',
+                 'memo': r[7] or '', 'is_deleted': bool(r[8])}
+                for r in rows
+            ]
+        except sqlite3.OperationalError:
+            return []
+        finally:
+            conn.close()
+
+    def update_export_history_field(self, record_id, field, value):
+        """author または memo フィールドを更新する。"""
+        if field not in ('author', 'memo'):
+            return False
+        conn = self._open_db()
+        if not conn:
+            return False
+        try:
+            conn.execute(
+                f'UPDATE export_history SET {field} = ? WHERE id = ?',
+                (value, record_id),
+            )
+            conn.commit()
+            return True
+        finally:
+            conn.close()
+
+    def delete_export_history(self, record_id):
+        """エクスポート履歴レコードをソフトデリート（is_deleted=1）する。"""
+        conn = self._open_db()
+        if not conn:
+            return False
+        try:
+            conn.execute(
+                'UPDATE export_history SET is_deleted = 1 WHERE id = ?',
+                (record_id,),
+            )
+            conn.commit()
+            return True
+        finally:
+            conn.close()
 
     def close(self):
         """レイヤーを閉じる。"""

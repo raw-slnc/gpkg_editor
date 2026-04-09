@@ -601,6 +601,81 @@ This action cannot be undone. Continue?</translation>
         <source>不要</source>
         <translation>Not required.</translation>
     </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="0" />
+        <source>履歴</source>
+        <translation>History</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="0" />
+        <source>件</source>
+        <translation> features</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="0" />
+        <source>編集列</source>
+        <translation> edit cols</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="0" />
+        <source>エクスポート履歴はありません</source>
+        <translation>No export history</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="0" />
+        <source>{}はディレクトリから削除されました。</source>
+        <translation>{} was removed from the directory.</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="0" />
+        <source>{}は削除されました。</source>
+        <translation>{} has been deleted.</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="0" />
+        <source>読込</source>
+        <translation>Load</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="0" />
+        <source>表示</source>
+        <translation>Show</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="0" />
+        <source>計画者</source>
+        <translation>Author</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="0" />
+        <source>メモ</source>
+        <translation>Note</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="0" />
+        <source>削除の確認</source>
+        <translation>Confirm Delete</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="0" />
+        <source>この履歴レコードを削除しますか？</source>
+        <translation>Delete this history record?</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="0" />
+        <source>このファイルはレイヤーで使用中です。\n削除するとレイヤーも除去されます。\n\n削除しますか？</source>
+        <translation>This file is in use by a layer.\nDeleting it will also remove the layer.\n\nDelete?</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="0" />
+        <source>レイヤーの読み込みに失敗しました:\n{}</source>
+        <translation>Failed to load layer:\n{}</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="0" />
+        <source>{} に保存されました</source>
+        <translation>Saved to {}</translation>
+    </message>
 </context>
 <context>
     <name>GpkgEditorWindowBase</name>

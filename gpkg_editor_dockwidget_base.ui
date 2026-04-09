@@ -615,6 +615,16 @@
          </spacer>
         </item>
         <item>
+         <widget class="QPushButton" name="btnHistory">
+          <property name="text">
+           <string>履歴</string>
+          </property>
+          <property name="checkable">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QPushButton" name="btnLanguage">
           <property name="text">
            <string>言語</string>

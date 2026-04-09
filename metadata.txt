@@ -12,7 +12,7 @@ description[en]=View and edit GeoPackage (GPKG) layer attributes with plan manag
 description[es]=Visualice y edite atributos de capas GeoPackage (GPKG) con gestión de planes y exportación GPKG/CSV.
 description[pt]=Visualize e edite atributos de camadas GeoPackage (GPKG) com gestão de planos e exportação GPKG/CSV.
 description[ja]=GeoPackage（GPKG）レイヤー属性の閲覧・編集、計画管理、GPKG/CSV出力を行います。
-version=0.1.10
+version=0.2.0
 author=Hideharu Masai
 email=hideharumasai@void.mints.ne.jp
 
@@ -29,6 +29,7 @@ repository=https://github.com/raw-slnc/gpkg_editor
 
 hasProcessingProvider=no
 changelog=
+    0.2.0 - Add export history panel: every GPKG/CSV export is recorded with filename, timestamp, feature count, editable column count, author, and memo; exported GPKGs can be reloaded as layers; CSVs can be opened in the file manager; records persist after deletion, showing removal status; auto-save exports to GPKG_Editor_exports folder with 4-digit serial + timestamp filename (no save dialog); add German (de) translation; fix incorrect layer loaded from multi-layer GPKG (layername now passed to OGR provider); fix SQL error when plan has no features (fid IN () replaced with fid IN (-1)); fix export writer error not detected (check hasError() after create); fix feature count in export history for full export; fix source identity check to include layername (prevents FID mismatch across layers in same GPKG); fix CSV open button to use QDesktopServices for cross-platform compatibility
     0.1.10 - Update icon; add plan copy feature (duplicate a plan from combo box); rename save button to "Confirm Plan" to clarify its role; highlight "Confirm Plan" button when unsaved changes exist
     0.1.9 - Fix lock mode to block only pan/zoom tools (not selection tools); add lock checkbox to status bar; single table-row selection shows rubber band instead of layer selection in plan mode; point layers use crosshair markers (skip temp layer); two-layer line symbology (black+yellow, point units); pan to selection for all geometry types; fix map-to-table sync when plan active; fix NoneType error when temp layer absent; fix temp layer source URI and CRS assignment; zoom to plan extent on activation
     0.1.8 - Redesign lock mode to freeze canvas movement; add crosshair highlight (point layers and locked mode); mutually exclusive thumbnail/shortcuts accordion; point layer thumbnail notice; fix canvas centering for point layers; sync table selection to QGIS layer; optimize thumbnail rendering
