@@ -128,13 +128,13 @@ class GpkgDataManager:
                 fids.append(feat.id())
         return fids
 
-    def get_merged_features(self, fids, display_cols, edit_cols):
+    def get_merged_features(self, fids, display_cols, edit_cols, plan_name):
         """結合済みデータを返す。"""
         if not self.original_layer:
             return []
 
         all_cols = display_cols + edit_cols
-        edit_data = self._load_edit_data(fids, edit_cols)
+        edit_data = self._load_edit_data(fids, edit_cols, plan_name)
 
         result = []
         request = QgsFeatureRequest()
@@ -170,6 +170,8 @@ class GpkgDataManager:
         if not self._db_path:
             return None
         conn = sqlite3.connect(self._db_path)
+        # WALモードを無効化（Windows環境で.shm/.walが残存しロックされる問題を回避）
+        conn.execute('PRAGMA journal_mode=DELETE')
         conn.execute('''
             CREATE TABLE IF NOT EXISTS plans (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -181,12 +183,49 @@ class GpkgDataManager:
         ''')
         conn.execute('''
             CREATE TABLE IF NOT EXISTS edits (
+                plan_name TEXT NOT NULL,
                 orig_fid INTEGER NOT NULL,
                 col_name TEXT NOT NULL,
                 value,
-                PRIMARY KEY (orig_fid, col_name)
+                PRIMARY KEY (plan_name, orig_fid, col_name)
             )
         ''')
+        # edits テーブルのスキーママイグレーション（plan_name カラム追加）
+        try:
+            cols = [r[1] for r in conn.execute('PRAGMA table_info(edits)').fetchall()]
+            if 'plan_name' not in cols:
+                old_edits = conn.execute(
+                    'SELECT orig_fid, col_name, value FROM edits'
+                ).fetchall()
+                plan_rows = conn.execute('SELECT name, fids FROM plans').fetchall()
+                plan_fids = {}
+                for pname, fids_json in plan_rows:
+                    try:
+                        plan_fids[pname] = set(json.loads(fids_json))
+                    except Exception:
+                        pass
+                conn.execute('DROP TABLE edits')
+                conn.execute('''
+                    CREATE TABLE edits (
+                        plan_name TEXT NOT NULL,
+                        orig_fid INTEGER NOT NULL,
+                        col_name TEXT NOT NULL,
+                        value,
+                        PRIMARY KEY (plan_name, orig_fid, col_name)
+                    )
+                ''')
+                for orig_fid, col_name, value in old_edits:
+                    for pname, fids in plan_fids.items():
+                        if orig_fid in fids:
+                            conn.execute(
+                                'INSERT OR IGNORE INTO edits '
+                                '(plan_name, orig_fid, col_name, value) '
+                                'VALUES (?, ?, ?, ?)',
+                                (pname, orig_fid, col_name, value),
+                            )
+                conn.commit()
+        except Exception:
+            pass
         conn.execute('''
             CREATE TABLE IF NOT EXISTS export_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -214,10 +253,10 @@ class GpkgDataManager:
     # 編集データ
     # ──────────────────────────────────────────────
 
-    def _load_edit_data(self, fids, edit_cols):
+    def _load_edit_data(self, fids, edit_cols, plan_name):
         """編集データを読み込む。"""
         edit_data = {}
-        if not self._db_path or not edit_cols or not fids:
+        if not self._db_path or not edit_cols or not fids or not plan_name:
             return edit_data
         if not os.path.exists(self._db_path):
             return edit_data
@@ -227,8 +266,8 @@ class GpkgDataManager:
             placeholders = ','.join('?' for _ in fids)
             rows = conn.execute(
                 f'SELECT orig_fid, col_name, value FROM edits '
-                f'WHERE orig_fid IN ({placeholders})',
-                list(fids),
+                f'WHERE plan_name = ? AND orig_fid IN ({placeholders})',
+                [plan_name] + list(fids),
             ).fetchall()
             for orig_fid, col_name, value in rows:
                 if col_name in edit_cols:
@@ -241,14 +280,15 @@ class GpkgDataManager:
             conn.close()
         return edit_data
 
-    def get_all_edits(self):
-        """全編集データを返す: {orig_fid: {col_name: value}}"""
-        if not self._db_path or not os.path.exists(self._db_path):
+    def get_all_edits(self, plan_name):
+        """指定計画の全編集データを返す: {orig_fid: {col_name: value}}"""
+        if not self._db_path or not os.path.exists(self._db_path) or not plan_name:
             return {}
         conn = sqlite3.connect(self._db_path)
         try:
             rows = conn.execute(
-                'SELECT orig_fid, col_name, value FROM edits'
+                'SELECT orig_fid, col_name, value FROM edits WHERE plan_name = ?',
+                (plan_name,),
             ).fetchall()
             result = {}
             for orig_fid, col_name, value in rows:
@@ -261,27 +301,29 @@ class GpkgDataManager:
         finally:
             conn.close()
 
-    def clear_edits(self):
-        """編集データをすべてクリアする（上書き保存後に呼ぶ）。"""
+    def clear_edits(self, plan_name):
+        """指定計画の編集データをクリアする（上書き保存後に呼ぶ）。"""
         conn = self._open_db()
         if not conn:
             return
         try:
-            conn.execute('DELETE FROM edits')
+            conn.execute('DELETE FROM edits WHERE plan_name = ?', (plan_name,))
             conn.commit()
         finally:
             conn.close()
 
-    def save_edit(self, fid, column, value, edit_cols):
+    def save_edit(self, fid, column, value, edit_cols, plan_name):
         """編集データを保存する。"""
+        if not plan_name:
+            raise ValueError('計画名が指定されていません')
         conn = self._open_db()
         if not conn:
             raise ValueError('管理用DBを開けません')
         try:
             conn.execute(
-                'INSERT OR REPLACE INTO edits (orig_fid, col_name, value) '
-                'VALUES (?, ?, ?)',
-                (fid, column, value),
+                'INSERT OR REPLACE INTO edits (plan_name, orig_fid, col_name, value) '
+                'VALUES (?, ?, ?, ?)',
+                (plan_name, fid, column, value),
             )
             conn.commit()
             return True
@@ -352,39 +394,62 @@ class GpkgDataManager:
         if not conn:
             return False
         try:
+            conn.execute('DELETE FROM edits WHERE plan_name = ?', (name,))
             conn.execute('DELETE FROM plans WHERE name = ?', (name,))
+            conn.execute('DELETE FROM export_history WHERE plan_name = ?', (name,))
             conn.commit()
             return True
         finally:
             conn.close()
 
     def copy_plan(self, source_name, new_name):
+        """計画をコピーする（フィーチャーセット・カラム設定・編集データをすべてコピー）。"""
         plan = self.load_plan(source_name)
         if not plan:
             return False
-        return self.save_plan(
+        if not self.save_plan(
             new_name,
             plan['fids'],
             plan['column_config'],
             plan.get('status_exprs'),
-        )
+        ):
+            return False
+        # 編集データもコピー（計画ごとに独立した編集値を持つ）
+        conn = self._open_db()
+        if not conn:
+            return True  # 計画自体は保存済み
+        try:
+            rows = conn.execute(
+                'SELECT orig_fid, col_name, value FROM edits WHERE plan_name = ?',
+                (source_name,),
+            ).fetchall()
+            for orig_fid, col_name, value in rows:
+                conn.execute(
+                    'INSERT OR IGNORE INTO edits (plan_name, orig_fid, col_name, value) '
+                    'VALUES (?, ?, ?, ?)',
+                    (new_name, orig_fid, col_name, value),
+                )
+            conn.commit()
+            return True
+        finally:
+            conn.close()
 
     # ──────────────────────────────────────────────
     # エクスポート / ユーティリティ
     # ──────────────────────────────────────────────
 
-    def get_all_merged_data(self, display_cols, edit_cols):
+    def get_all_merged_data(self, display_cols, edit_cols, plan_name):
         """全フィーチャーの結合データを返す。"""
         if not self.original_layer:
             return []
 
         all_fids = [f.id() for f in self.original_layer.getFeatures()]
-        return self.get_merged_features(all_fids, display_cols, edit_cols)
+        return self.get_merged_features(all_fids, display_cols, edit_cols, plan_name)
 
-    def _load_all_edit_data(self, fids):
+    def _load_all_edit_data(self, fids, plan_name):
         """指定fidsの全カラム編集データを読み込む（カラム絞り込みなし）。"""
         edit_data = {}
-        if not self._db_path or not fids:
+        if not self._db_path or not fids or not plan_name:
             return edit_data
         if not os.path.exists(self._db_path):
             return edit_data
@@ -393,8 +458,8 @@ class GpkgDataManager:
             placeholders = ','.join('?' for _ in fids)
             rows = conn.execute(
                 f'SELECT orig_fid, col_name, value FROM edits '
-                f'WHERE orig_fid IN ({placeholders})',
-                list(fids),
+                f'WHERE plan_name = ? AND orig_fid IN ({placeholders})',
+                [plan_name] + list(fids),
             ).fetchall()
             for orig_fid, col_name, value in rows:
                 if orig_fid not in edit_data:
@@ -406,7 +471,7 @@ class GpkgDataManager:
             conn.close()
         return edit_data
 
-    def export_gpkg(self, output_path, fids=None):
+    def export_gpkg(self, output_path, plan_name, fids=None):
         """全カラム＋編集適用でGPKGエクスポートする。fids を指定するとその範囲のみ出力。"""
         if not self.original_layer:
             return False
@@ -417,10 +482,10 @@ class GpkgDataManager:
         request = QgsFeatureRequest()
         if fids is not None:
             request.setFilterFids(fids)
-            edit_data = self._load_all_edit_data(fids)
+            edit_data = self._load_all_edit_data(fids, plan_name)
         else:
             all_fids = [f.id() for f in self.original_layer.getFeatures()]
-            edit_data = self._load_all_edit_data(all_fids)
+            edit_data = self._load_all_edit_data(all_fids, plan_name)
 
         writer_options = QgsVectorFileWriter.SaveVectorOptions()
         writer_options.driverName = 'GPKG'
@@ -453,7 +518,7 @@ class GpkgDataManager:
         del writer
         return True
 
-    def export_csv(self, output_path, fids=None):
+    def export_csv(self, output_path, plan_name, fids=None):
         """全カラム＋編集適用でCSVエクスポートする。fids を指定するとその範囲のみ出力。"""
         if not self.original_layer:
             return False
@@ -464,10 +529,10 @@ class GpkgDataManager:
         request = QgsFeatureRequest()
         if fids is not None:
             request.setFilterFids(fids)
-            edit_data = self._load_all_edit_data(fids)
+            edit_data = self._load_all_edit_data(fids, plan_name)
         else:
             all_fids = [f.id() for f in self.original_layer.getFeatures()]
-            edit_data = self._load_all_edit_data(all_fids)
+            edit_data = self._load_all_edit_data(all_fids, plan_name)
 
         with open(output_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
@@ -577,6 +642,7 @@ class GpkgDataManager:
             return {}
 
         conn = sqlite3.connect(self._db_path)
+        conn.execute('PRAGMA journal_mode=DELETE')
         renamed = {}
         try:
             rows = conn.execute(
@@ -605,13 +671,20 @@ class GpkgDataManager:
                 num, date, time_, ext = m.group(1), m.group(2), m.group(3), m.group(4)
                 new_filename = f'{sanitized}_{num}_{date}_{time_}.{ext}'
 
-                # ファイルリネーム（新パスが既存の場合は上書きしない）
                 old_path = os.path.join(export_folder, old_filename)
                 new_path = os.path.join(export_folder, new_filename)
-                if os.path.exists(old_path) and not os.path.exists(new_path):
+                old_exists = os.path.exists(old_path)
+                new_exists = os.path.exists(new_path)
+
+                if not old_exists and not new_exists:
+                    # どちらも存在しない（別環境からの移行等）→ DBは更新しない
+                    continue
+
+                # ファイルリネーム（旧ファイルが存在し新ファイルがない場合のみ）
+                if old_exists and not new_exists:
                     os.rename(old_path, new_path)
 
-                # DB更新
+                # DB更新（ファイルが実在する場合のみここに到達）
                 conn.execute(
                     'UPDATE export_history SET filename = ? WHERE id = ?',
                     (new_filename, rec_id),
@@ -626,6 +699,53 @@ class GpkgDataManager:
             conn.close()
 
         return renamed
+
+    def cleanup_orphan_data(self):
+        """孤立した edits・export_history レコードを削除する。
+        - edits: plans テーブルに存在しない plan_name のレコードを削除
+        - export_history: plans テーブルに存在しない plan_name のレコードを削除
+        """
+        conn = self._open_db()
+        if not conn:
+            return
+        try:
+            plan_names = {
+                row[0] for row in
+                conn.execute('SELECT name FROM plans').fetchall()
+            }
+
+            # edits: 存在しない計画名のレコードを削除
+            edit_plan_names = {
+                row[0] for row in
+                conn.execute('SELECT DISTINCT plan_name FROM edits').fetchall()
+            }
+            orphan_edit_plans = list(edit_plan_names - plan_names)
+            if orphan_edit_plans:
+                placeholders = ','.join('?' for _ in orphan_edit_plans)
+                conn.execute(
+                    f'DELETE FROM edits WHERE plan_name IN ({placeholders})',
+                    orphan_edit_plans,
+                )
+
+            # export_history: 存在しない計画名のレコードを削除
+            history_names = {
+                row[0] for row in
+                conn.execute('SELECT DISTINCT plan_name FROM export_history').fetchall()
+            }
+            orphan_names = list(history_names - plan_names)
+            if orphan_names:
+                placeholders = ','.join('?' for _ in orphan_names)
+                conn.execute(
+                    f'DELETE FROM export_history WHERE plan_name IN ({placeholders})',
+                    orphan_names,
+                )
+
+            if orphan_edit_plans or orphan_names:
+                conn.commit()
+        except Exception:
+            pass
+        finally:
+            conn.close()
 
     def close(self):
         """レイヤーを閉じる。"""

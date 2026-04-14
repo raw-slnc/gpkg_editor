@@ -130,6 +130,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._vertex_markers = []
         self._plan_active = False
         self._active_plan_name = None
+        self._temp_source_layer_id = None  # 一時レイヤーの元レイヤーID（再利用判定用）
         self._status_expr1 = ''
         self._status_expr2 = ''
         self._current_merged_data = []
@@ -696,6 +697,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         if self._locked:
             self.btnLock.setChecked(False)
         self._deactivate_plan()
+        self._remove_temp_layer()  # GPKGが切り替わる場合に一時レイヤーを確実に削除
 
         layer_id = self.cmbGpkgLayer.currentData()
         if not layer_id:
@@ -737,6 +739,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         renamed = self.data_manager.migrate_old_filename_pattern(export_folder)
         if renamed:
             self._migrate_loaded_layer_sources(renamed, export_folder)
+
+        # 孤立データのクリーンアップ（旧バージョンで発生した孤立 edits/export_history を削除）
+        self.data_manager.cleanup_orphan_data()
 
         self.lblStatus.setText(self.tr('読込完了: {}').format(layer.name()))
 
@@ -1119,8 +1124,22 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         orig = self.data_manager.original_layer
         if orig and orig.geometryType() == QgsWkbTypes.PointGeometry:
             return
-        # プロジェクトレイヤーの source URI をそのまま使う（テーブル名がファイル名と異なる場合に対応）
+
         layer_id = self.cmbGpkgLayer.currentData()
+
+        # 同一ソースの一時レイヤーが既にある場合は再利用（GPKGを再オープンしない）
+        if (self._temp_layer_valid() and
+                self._temp_source_layer_id == layer_id):
+            fid_str = ",".join(str(f) for f in self._current_fids) if self._current_fids else "-1"
+            self._temp_layer.setName(plan_name)
+            self._temp_layer.setSubsetString(f"fid IN ({fid_str})")
+            self._temp_layer.triggerRepaint()
+            return
+
+        # ソースが変わった or 初回: 既存の一時レイヤーを削除して新規作成
+        self._remove_temp_layer()
+
+        # プロジェクトレイヤーの source URI をそのまま使う（テーブル名がファイル名と異なる場合に対応）
         proj_layer = QgsProject.instance().mapLayer(layer_id) if layer_id else None
         if proj_layer:
             source_uri = proj_layer.source()
@@ -1151,6 +1170,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             root.insertLayer(0, temp)
 
         self._temp_layer = temp
+        self._temp_source_layer_id = layer_id
         self._temp_layer.selectionChanged.connect(self._on_temp_selection_changed)
 
     def _cleanup_orphan_temp_layers(self):
@@ -1176,6 +1196,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                 pass
             QgsProject.instance().removeMapLayer(self._temp_layer.id())
         self._temp_layer = None
+        self._temp_source_layer_id = None
         self.iface.mapCanvas().refresh()
 
     def _update_temp_layer_subset(self):
@@ -1392,6 +1413,11 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._update_status_display()
 
     def _update_table(self, fids):
+        import time
+        from qgis.core import QgsMessageLog, Qgis
+        _plan = self._active_plan_name or '(no plan)'
+        _ut0 = time.perf_counter()
+
         self._editing = True
 
         display_cols = self._get_display_cols()
@@ -1408,13 +1434,16 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             return
 
         merged = self.data_manager.get_merged_features(
-            fids, display_cols + info_cols, edit_cols
+            fids, display_cols + info_cols, edit_cols, self._active_plan_name
         )
+        _ut1 = time.perf_counter()
 
         self.tableFeatures.setColumnCount(len(visible_cols))
         self.tableFeatures.setHorizontalHeaderLabels(visible_cols)
         self.tableFeatures.setRowCount(len(merged))
+        _ut2 = time.perf_counter()
 
+        self.tableFeatures.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         for row_idx, row_data in enumerate(merged):
             fid = row_data['fid']
             edited_cols = row_data.get('_edited_cols', set())
@@ -1438,14 +1467,28 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
                 self.tableFeatures.setItem(row_idx, col_idx, item)
 
+        _ut3 = time.perf_counter()
+
         self.tableFeatures.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeToContents
         )
         self.tableFeatures.horizontalHeader().setMinimumSectionSize(100)
+        _ut4 = time.perf_counter()
+
         self._editing = False
         self._current_merged_data = merged
         self._update_feature_count()
         self._update_status_display()
+
+        QgsMessageLog.logMessage(
+            f'[update_table] plan={_plan!r} '
+            f'get_merged={_ut1-_ut0:.3f}s '
+            f'setup={_ut2-_ut1:.3f}s '
+            f'setItem={_ut3-_ut2:.3f}s '
+            f'resize={_ut4-_ut3:.3f}s '
+            f'total={_ut4-_ut0:.3f}s',
+            'GPKG Editor', Qgis.Info
+        )
 
     # ──────────────────────────────────────────────
     # セル編集
@@ -1468,7 +1511,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             return
 
         try:
-            self.data_manager.save_edit(fid, col_name, new_value, edit_cols)
+            self.data_manager.save_edit(fid, col_name, new_value, edit_cols, self._active_plan_name)
             # 編集済み → 赤字に変更
             item.setForeground(COLOR_EDITED)
             # merged data を更新してステータス表示に反映
@@ -1604,11 +1647,16 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._status_expr1 = status_exprs.get('expr1', '')
         self._status_expr2 = status_exprs.get('expr2', '')
 
+        import time
+        _t0 = time.perf_counter()
         self._activate_plan(plan_name)
+        _t1 = time.perf_counter()
         self._mark_plan_clean()
         self.btnPlanSave.setText(self.tr('登録フィーチャーの確定'))
         self._update_table(self._current_fids)
+        _t2 = time.perf_counter()
         self._render_thumbnail()
+        _t3 = time.perf_counter()
         self.lblStatus.setText(
             self.tr('計画「{}」を読み込みました ({} 件)').format(
                 plan_name, len(self._current_fids)
@@ -1616,6 +1664,17 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         )
         if self._history_mode:
             self._refresh_history_panel()
+        _t4 = time.perf_counter()
+        from qgis.core import QgsMessageLog, Qgis
+        QgsMessageLog.logMessage(
+            f'[gpkg_editor] plan={plan_name} '
+            f'activate={_t1-_t0:.3f}s '
+            f'update_table={_t2-_t1:.3f}s '
+            f'thumbnail={_t3-_t2:.3f}s '
+            f'history={_t4-_t3:.3f}s '
+            f'total={_t4-_t0:.3f}s',
+            'GPKG Editor', Qgis.Info
+        )
 
     def _on_plan_save(self):
         name = self.lineEditPlanName.text().strip()
@@ -1686,7 +1745,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
     def _activate_plan(self, name):
         """計画をアクティブ状態にする。"""
-        self._remove_temp_layer()
         self._plan_active = True
         self._active_plan_name = name
         self.btnPlanAddFeature.setEnabled(True)
@@ -2063,7 +2121,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         path = os.path.join(folder, filename)
 
         try:
-            self.data_manager.export_gpkg(path, fids=fids)
+            self.data_manager.export_gpkg(path, plan_name, fids=fids)
             feature_count = len(fids) if fids is not None else self.data_manager.original_layer.featureCount()
             edited_col_count = self._count_editable_columns()
             try:
@@ -2097,7 +2155,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         if not layer:
             return
 
-        all_edits = self.data_manager.get_all_edits()
+        all_edits = self.data_manager.get_all_edits(self._active_plan_name)
         if not all_edits:
             QMessageBox.information(
                 self, self.tr('情報'), self.tr('保存する編集がありません。')
@@ -2132,7 +2190,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                 raise Exception('\n'.join(errors))
 
             # 編集データをクリア（GPKGに反映済み）
-            self.data_manager.clear_edits()
+            self.data_manager.clear_edits(self._active_plan_name)
 
             # data_manager の original_layer を再読み込み（キャッシュリセット）
             self.data_manager.load_gpkg(path)
@@ -2168,7 +2226,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         path = os.path.join(folder, filename)
 
         try:
-            self.data_manager.export_csv(path, fids=fids)
+            self.data_manager.export_csv(path, plan_name, fids=fids)
             feature_count = len(fids) if fids is not None else self.data_manager.original_layer.featureCount()
             edited_col_count = self._count_editable_columns()
             try:

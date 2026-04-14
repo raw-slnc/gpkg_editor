@@ -12,7 +12,7 @@ description[en]=View and edit GeoPackage (GPKG) layer attributes with plan manag
 description[es]=Visualice y edite atributos de capas GeoPackage (GPKG) con gestión de planes y exportación GPKG/CSV.
 description[pt]=Visualize e edite atributos de camadas GeoPackage (GPKG) com gestão de planos e exportação GPKG/CSV.
 description[ja]=GeoPackage（GPKG）レイヤー属性の閲覧・編集、計画管理、GPKG/CSV出力を行います。
-version=0.2.1
+version=0.3.0
 author=Hideharu Masai
 email=hideharumasai@void.mints.ne.jp
 
@@ -29,6 +29,7 @@ repository=https://github.com/raw-slnc/gpkg_editor
 
 hasProcessingProvider=no
 changelog=
+    0.3.0 - [CRITICAL FIX] edit values are now stored independently per plan — previously all plans shared the same edits, causing cross-plan data contamination when copying plans; existing databases are automatically migrated at load time; this is a fundamental spec change that makes each plan a fully self-contained, independently editable unit; dramatically improves switching between copy-related plans (7+ seconds reduced to under 0.1s by resetting header resize mode before cell population); reuse temp layer when switching plans on the same GPKG source (eliminates duplicate layer events); clean up orphan plan data on GPKG load
     0.2.1 - Insert plan layer directly above source GPKG layer in layer tree; refresh history panel when switching plans; load history layers into a "[plan name] Group" group above the plan layer (reuse existing group); remove layer name from export filename (new pattern: {plan_name}_{serial}_{date}_{time}.{ext}); auto-migrate old filename pattern on GPKG load (rename files + update DB records + update loaded layer sources and names); history layer name shows only serial+timestamp portion; apply 20%% fill opacity style to history-loaded layers
     0.2.0 - Add export history panel: every GPKG/CSV export is recorded with filename, timestamp, feature count, editable column count, author, and memo; exported GPKGs can be reloaded as layers; CSVs can be opened in the file manager; records persist after deletion, showing removal status; auto-save exports to GPKG_Editor_exports folder with 4-digit serial + timestamp filename (no save dialog); add German (de) translation; fix incorrect layer loaded from multi-layer GPKG (layername now passed to OGR provider); fix SQL error when plan has no features (fid IN () replaced with fid IN (-1)); fix export writer error not detected (check hasError() after create); fix feature count in export history for full export; fix source identity check to include layername (prevents FID mismatch across layers in same GPKG); fix CSV open button to use QDesktopServices for cross-platform compatibility
     0.1.10 - Update icon; add plan copy feature (duplicate a plan from combo box); rename save button to "Confirm Plan" to clarify its role; highlight "Confirm Plan" button when unsaved changes exist
