@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import re
 import csv
 import json
 import sqlite3
@@ -565,6 +566,66 @@ class GpkgDataManager:
             return True
         finally:
             conn.close()
+
+    def migrate_old_filename_pattern(self, export_folder):
+        """旧命名パターン {計画名}_{レイヤー名}_{番号}_{日付}_{時間}.{拡張子} のファイルを
+        新パターン {計画名}_{番号}_{日付}_{時間}.{拡張子} に一括変換する。
+        ファイルのリネームと export_history レコードの filename 更新を行う。
+        Returns: {旧ファイル名: 新ファイル名} の辞書（変更があったもののみ）
+        """
+        if not self._db_path or not os.path.exists(self._db_path):
+            return {}
+
+        conn = sqlite3.connect(self._db_path)
+        renamed = {}
+        try:
+            rows = conn.execute(
+                'SELECT id, plan_name, filename FROM export_history'
+            ).fetchall()
+
+            for rec_id, plan_name, old_filename in rows:
+                sanitized = re.sub(r'[\\/:*?"<>|]', '_', plan_name)
+                new_pattern = re.compile(
+                    r'^' + re.escape(sanitized) + r'_\d{4}_\d{8}_\d{6}\.(gpkg|csv)$',
+                    re.IGNORECASE,
+                )
+                if new_pattern.match(old_filename):
+                    continue  # 既に新パターン
+
+                # 旧パターンから番号・日付・時間を抽出
+                # {計画名}_{レイヤー名}_{番号}_{日付}_{時間}.{拡張子}
+                old_pattern = re.compile(
+                    r'^' + re.escape(sanitized) + r'_.+_(\d{4})_(\d{8})_(\d{6})\.(gpkg|csv)$',
+                    re.IGNORECASE,
+                )
+                m = old_pattern.match(old_filename)
+                if not m:
+                    continue  # 不明なパターン、スキップ
+
+                num, date, time_, ext = m.group(1), m.group(2), m.group(3), m.group(4)
+                new_filename = f'{sanitized}_{num}_{date}_{time_}.{ext}'
+
+                # ファイルリネーム（新パスが既存の場合は上書きしない）
+                old_path = os.path.join(export_folder, old_filename)
+                new_path = os.path.join(export_folder, new_filename)
+                if os.path.exists(old_path) and not os.path.exists(new_path):
+                    os.rename(old_path, new_path)
+
+                # DB更新
+                conn.execute(
+                    'UPDATE export_history SET filename = ? WHERE id = ?',
+                    (new_filename, rec_id),
+                )
+                renamed[old_filename] = new_filename
+
+            if renamed:
+                conn.commit()
+        except Exception:
+            pass
+        finally:
+            conn.close()
+
+        return renamed
 
     def close(self):
         """レイヤーを閉じる。"""

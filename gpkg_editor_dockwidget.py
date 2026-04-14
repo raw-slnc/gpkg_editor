@@ -34,6 +34,7 @@ from qgis.core import (
     QgsCoordinateTransform,
     QgsFeatureRequest,
     QgsGeometry,
+    QgsLayerTreeGroup,
     QgsPointXY,
     QgsRectangle,
     QgsVectorLayer,
@@ -731,6 +732,12 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             QMessageBox.critical(self, self.tr('エラー'), str(e))
             return
 
+        # 旧命名パターンのファイルをマイグレーション
+        export_folder = self._get_export_folder()
+        renamed = self.data_manager.migrate_old_filename_pattern(export_folder)
+        if renamed:
+            self._migrate_loaded_layer_sources(renamed, export_folder)
+
         self.lblStatus.setText(self.tr('読込完了: {}').format(layer.name()))
 
         columns = self.data_manager.get_original_fields()
@@ -1131,7 +1138,18 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         temp.setSubsetString(f"fid IN ({fid_str})")
         self._apply_temp_layer_style(temp)
         temp.setCustomProperty('gpkg_editor_temp', True)
-        QgsProject.instance().addMapLayer(temp)
+        QgsProject.instance().addMapLayer(temp, False)
+
+        # 元のGPKGレイヤーの直上に挿入
+        root = QgsProject.instance().layerTreeRoot()
+        ref_node = root.findLayer(proj_layer.id()) if proj_layer else None
+        if ref_node and ref_node.parent():
+            parent = ref_node.parent()
+            idx = parent.children().index(ref_node)
+            parent.insertLayer(idx, temp)
+        else:
+            root.insertLayer(0, temp)
+
         self._temp_layer = temp
         self._temp_layer.selectionChanged.connect(self._on_temp_selection_changed)
 
@@ -1222,6 +1240,34 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         rb.setWidth(2)
         rb.setToGeometry(feat.geometry(), layer)
         self._rubber_bands.append(rb)
+
+    def _apply_history_layer_style(self, layer):
+        """履歴から読み込んだレイヤーにスタイルを適用する（塗りつぶし20%）。"""
+        geom_type = layer.geometryType()
+        if geom_type == QgsWkbTypes.PolygonGeometry:
+            symbol = QgsFillSymbol.createSimple({
+                'color': '0,120,255,51',       # 青・不透明度20%（51/255）
+                'outline_color': '0,80,180,200',
+                'outline_width': '0.4',
+                'outline_width_unit': 'Point',
+            })
+            layer.setRenderer(QgsSingleSymbolRenderer(symbol))
+        elif geom_type == QgsWkbTypes.LineGeometry:
+            pt = QgsUnitTypes.RenderPoints
+            sl = QgsSimpleLineSymbolLayer(QColor(0, 120, 255, 200), 1.2)
+            sl.setWidthUnit(pt)
+            symbol = QgsLineSymbol()
+            symbol.deleteSymbolLayer(0)
+            symbol.appendSymbolLayer(sl)
+            layer.setRenderer(QgsSingleSymbolRenderer(symbol))
+        else:
+            symbol = QgsMarkerSymbol.createSimple({
+                'color': '0,120,255,51',
+                'color_border': '0,80,180,200',
+                'size': '3',
+                'size_unit': 'Point',
+            })
+            layer.setRenderer(QgsSingleSymbolRenderer(symbol))
 
     def _apply_temp_layer_style(self, layer):
         """一時レイヤーにスタイルを適用する。"""
@@ -1568,6 +1614,8 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                 plan_name, len(self._current_fids)
             )
         )
+        if self._history_mode:
+            self._refresh_history_panel()
 
     def _on_plan_save(self):
         name = self.lineEditPlanName.text().strip()
@@ -2008,12 +2056,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             return
 
         plan_name = self._active_plan_name or 'noplan'
-        layer_name = self.data_manager.layer_name or 'layer'
         folder = self._get_export_folder()
-        num = self._next_export_number(folder, plan_name, layer_name)
+        num = self._next_export_number(folder, plan_name)
         ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = (self._sanitize_filename(plan_name) + '_'
-                    + self._sanitize_filename(layer_name) + '_' + num + '_' + ts + '.gpkg')
+        filename = self._sanitize_filename(plan_name) + '_' + num + '_' + ts + '.gpkg'
         path = os.path.join(folder, filename)
 
         try:
@@ -2115,12 +2161,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             return
 
         plan_name = self._active_plan_name or 'noplan'
-        layer_name = self.data_manager.layer_name or 'layer'
         folder = self._get_export_folder()
-        num = self._next_export_number(folder, plan_name, layer_name)
+        num = self._next_export_number(folder, plan_name)
         ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = (self._sanitize_filename(plan_name) + '_'
-                    + self._sanitize_filename(layer_name) + '_' + num + '_' + ts + '.csv')
+        filename = self._sanitize_filename(plan_name) + '_' + num + '_' + ts + '.csv'
         path = os.path.join(folder, filename)
 
         try:
@@ -2155,6 +2199,25 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         """現在の column_config で編集モードのカラム数を返す。"""
         return sum(1 for v in self.column_config.values() if v == COLUMN_EDITABLE)
 
+    def _migrate_loaded_layer_sources(self, renamed, export_folder):
+        """QGISにロード済みのレイヤーのソースパスを旧→新ファイル名に更新する。"""
+        for layer in QgsProject.instance().mapLayers().values():
+            src = layer.source()
+            for old_name, new_name in renamed.items():
+                old_path = os.path.join(export_folder, old_name)
+                if old_path not in src:
+                    continue
+                new_path = os.path.join(export_folder, new_name)
+                new_src = src.replace(old_path, new_path)
+                new_stem = os.path.splitext(new_name)[0]
+                m = re.search(r'(\d{4}_\d{8}_\d{6})$', new_stem)
+                new_layer_name = m.group(1) if m else new_stem
+                try:
+                    layer.setDataSource(new_src, new_layer_name, layer.providerType())
+                except Exception:
+                    pass
+                break
+
     def _get_export_folder(self):
         """出力フォルダ (GPKG_Editor_exports) のパスを返す。なければ作成する。"""
         proj_path = QgsProject.instance().absoluteFilePath()
@@ -2168,9 +2231,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         os.makedirs(folder, exist_ok=True)
         return folder
 
-    def _next_export_number(self, folder, plan_name, layer_name):
+    def _next_export_number(self, folder, plan_name):
         """フォルダ内の既存ファイルをスキャンし、次の通し番号（4桁）を返す。"""
-        prefix = self._sanitize_filename(plan_name) + '_' + self._sanitize_filename(layer_name) + '_'
+        prefix = self._sanitize_filename(plan_name) + '_'
         pattern = re.compile(
             r'^' + re.escape(prefix) + r'(\d{4})_\d{8}_\d{6}\.(gpkg|csv)$',
             re.IGNORECASE,
@@ -2396,27 +2459,48 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self._grayout_row(frame)
             return
 
-        layer_name = os.path.splitext(filename)[0]
+        stem = os.path.splitext(filename)[0]
+        m = re.search(r'(\d{4}_\d{8}_\d{6})$', stem)
+        layer_name = m.group(1) if m else stem
         layer = QgsVectorLayer(path, layer_name, 'ogr')
         if not layer.isValid():
             QMessageBox.warning(self, self.tr('エラー'),
                                 self.tr('レイヤーの読み込みに失敗しました:\n{}').format(path))
             self._grayout_row(frame)
             return
+        self._apply_history_layer_style(layer)
 
         QgsProject.instance().addMapLayer(layer, False)
 
-        # 計画レイヤー直下に挿入
+        # 計画レイヤーの直上に "[計画名] Group" グループを作り、その中に挿入
+        group_name = '{} Group'.format(self._active_plan_name or layer_name)
         root = QgsProject.instance().layerTreeRoot()
         ref_node = None
         if self._temp_layer_valid():
             ref_node = root.findLayer(self._temp_layer.id())
+
         if ref_node and ref_node.parent():
             parent = ref_node.parent()
             idx = parent.children().index(ref_node)
-            parent.insertLayer(idx + 1, layer)
+            # 同名グループが既にあれば再利用、なければ計画レイヤーの直上に新規作成
+            group = None
+            for child in parent.children():
+                if isinstance(child, QgsLayerTreeGroup) and child.name() == group_name:
+                    group = child
+                    break
+            if group is None:
+                group = parent.insertGroup(idx, group_name)
         else:
-            root.insertLayer(0, layer)
+            # 計画レイヤーが見つからない場合はルート先頭にグループを作成
+            group = None
+            for child in root.children():
+                if isinstance(child, QgsLayerTreeGroup) and child.name() == group_name:
+                    group = child
+                    break
+            if group is None:
+                group = root.insertGroup(0, group_name)
+
+        group.addLayer(layer)
 
     def _on_export_history_show(self, filename, frame):
         """CSV エクスポート履歴をファイルマネージャーで表示する。"""
