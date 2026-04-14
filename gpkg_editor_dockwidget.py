@@ -2204,10 +2204,11 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         for layer in QgsProject.instance().mapLayers().values():
             src = layer.source()
             for old_name, new_name in renamed.items():
-                old_path = os.path.join(export_folder, old_name)
+                # QGISのソースURIは常に '/' 区切りのためスラッシュに統一して比較
+                old_path = os.path.join(export_folder, old_name).replace('\\', '/')
                 if old_path not in src:
                     continue
-                new_path = os.path.join(export_folder, new_name)
+                new_path = os.path.join(export_folder, new_name).replace('\\', '/')
                 new_src = src.replace(old_path, new_path)
                 new_stem = os.path.splitext(new_name)[0]
                 m = re.search(r'(\d{4}_\d{8}_\d{6})$', new_stem)
