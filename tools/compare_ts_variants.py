@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import argparse
-import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET
 
 
 def _read_ts(path: str):

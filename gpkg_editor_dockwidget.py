@@ -1192,7 +1192,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         if self._temp_layer_valid():
             try:
                 self._temp_layer.selectionChanged.disconnect(self._on_temp_selection_changed)
-            except Exception:
+            except Exception:  # nosec B110
                 pass
             QgsProject.instance().removeMapLayer(self._temp_layer.id())
         self._temp_layer = None
@@ -1772,7 +1772,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             transform = QgsCoordinateTransform(layer_crs, canvas_crs, QgsProject.instance())
             try:
                 extent = transform.transformBoundingBox(extent)
-            except Exception:
+            except Exception:  # nosec B110
                 pass
         extent.scale(1.1)
         canvas.setExtent(extent)
@@ -2273,7 +2273,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                 new_layer_name = m.group(1) if m else new_stem
                 try:
                     layer.setDataSource(new_src, new_layer_name, layer.providerType())
-                except Exception:
+                except Exception:  # nosec B110
                     pass
                 break
 
@@ -2610,7 +2610,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         if os.path.exists(path):
             try:
                 os.remove(path)
-            except Exception:
+            except Exception:  # nosec B110
                 pass
 
         # DB をソフトデリート

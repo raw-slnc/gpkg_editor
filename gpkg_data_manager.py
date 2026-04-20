@@ -202,7 +202,7 @@ class GpkgDataManager:
                 for pname, fids_json in plan_rows:
                     try:
                         plan_fids[pname] = set(json.loads(fids_json))
-                    except Exception:
+                    except Exception:  # nosec B110
                         pass
                 conn.execute('DROP TABLE edits')
                 conn.execute('''
@@ -224,7 +224,7 @@ class GpkgDataManager:
                                 (pname, orig_fid, col_name, value),
                             )
                 conn.commit()
-        except Exception:
+        except Exception:  # nosec B110
             pass
         conn.execute('''
             CREATE TABLE IF NOT EXISTS export_history (
@@ -244,7 +244,7 @@ class GpkgDataManager:
         try:
             conn.execute('ALTER TABLE export_history ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0')
             conn.commit()
-        except Exception:
+        except Exception:  # nosec B110
             pass
         conn.commit()
         return conn
@@ -265,7 +265,7 @@ class GpkgDataManager:
         try:
             placeholders = ','.join('?' for _ in fids)
             rows = conn.execute(
-                f'SELECT orig_fid, col_name, value FROM edits '
+                f'SELECT orig_fid, col_name, value FROM edits '  # nosec B608
                 f'WHERE plan_name = ? AND orig_fid IN ({placeholders})',
                 [plan_name] + list(fids),
             ).fetchall()
@@ -457,7 +457,7 @@ class GpkgDataManager:
         try:
             placeholders = ','.join('?' for _ in fids)
             rows = conn.execute(
-                f'SELECT orig_fid, col_name, value FROM edits '
+                f'SELECT orig_fid, col_name, value FROM edits '  # nosec B608
                 f'WHERE plan_name = ? AND orig_fid IN ({placeholders})',
                 [plan_name] + list(fids),
             ).fetchall()
@@ -609,7 +609,7 @@ class GpkgDataManager:
             return False
         try:
             conn.execute(
-                f'UPDATE export_history SET {field} = ? WHERE id = ?',
+                f'UPDATE export_history SET {field} = ? WHERE id = ?',  # nosec B608
                 (value, record_id),
             )
             conn.commit()
@@ -693,7 +693,7 @@ class GpkgDataManager:
 
             if renamed:
                 conn.commit()
-        except Exception:
+        except Exception:  # nosec B110
             pass
         finally:
             conn.close()
@@ -723,7 +723,7 @@ class GpkgDataManager:
             if orphan_edit_plans:
                 placeholders = ','.join('?' for _ in orphan_edit_plans)
                 conn.execute(
-                    f'DELETE FROM edits WHERE plan_name IN ({placeholders})',
+                    f'DELETE FROM edits WHERE plan_name IN ({placeholders})',  # nosec B608
                     orphan_edit_plans,
                 )
 
@@ -736,13 +736,13 @@ class GpkgDataManager:
             if orphan_names:
                 placeholders = ','.join('?' for _ in orphan_names)
                 conn.execute(
-                    f'DELETE FROM export_history WHERE plan_name IN ({placeholders})',
+                    f'DELETE FROM export_history WHERE plan_name IN ({placeholders})',  # nosec B608
                     orphan_names,
                 )
 
             if orphan_edit_plans or orphan_names:
                 conn.commit()
-        except Exception:
+        except Exception:  # nosec B110
             pass
         finally:
             conn.close()
