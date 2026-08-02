@@ -2,7 +2,7 @@
 import os
 
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction, QDockWidget
+from qgis.PyQt.QtWidgets import QAction
 from qgis.PyQt.QtCore import QCoreApplication, QSettings, Qt, QTranslator
 
 
@@ -123,16 +123,17 @@ class GpkgEditor:
     def run(self):
         """プラグインを実行する。ドックを表示する。"""
         if self.dock is None:
-            from .gpkg_editor_dockwidget import GpkgEditorWindow
+            from .gpkg_editor_dockwidget import GpkgEditorDockWidget, GpkgEditorWindow
             self.window = GpkgEditorWindow(
                 self.iface,
                 self.plugin_dir,
                 self.set_language,
                 self.get_active_locale,
             )
-            self.dock = QDockWidget(self.tr('GPKG Editor'), self.iface.mainWindow())
+            self.dock = GpkgEditorDockWidget(self.tr('GPKG Editor'), self.iface.mainWindow())
             self.dock.setObjectName('GpkgEditorDock')
             self.dock.setWidget(self.window)
+            self.window.attach_dock_widget(self.dock)
             self.dock.setAllowedAreas(
                 Qt.BottomDockWidgetArea | Qt.TopDockWidgetArea
             )

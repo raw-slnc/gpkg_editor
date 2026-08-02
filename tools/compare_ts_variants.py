@@ -17,8 +17,12 @@ def _read_ts(path: str):
         for msg in ctx.findall("message"):
             source = msg.findtext("source", default="")
             translation = msg.find("translation")
-            trans_text = (translation.text or "").strip() if translation is not None else ""
-            trans_type = translation.attrib.get("type", "") if translation is not None else ""
+            if translation is not None:
+                trans_text = (translation.text or "").strip()
+                trans_type = translation.attrib.get("type", "")
+            else:
+                trans_text = ""
+                trans_type = ""
             key = (name, source)
             data[key] = {
                 "translated": bool(trans_text) and trans_type != "unfinished",
@@ -30,18 +34,31 @@ def _read_ts(path: str):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Compare translated message differences between two TS files."
+        description=(
+            "Compare translated message differences between "
+            "two TS files."
+        )
     )
-    parser.add_argument("left", help="left TS file (e.g., gpkg_editor_pt.ts)")
-    parser.add_argument("right", help="right TS file (e.g., gpkg_editor_pt_BR.ts)")
+    parser.add_argument(
+        "left",
+        help="left TS file (e.g., gpkg_editor_pt.ts)",
+    )
+    parser.add_argument(
+        "right",
+        help="right TS file (e.g., gpkg_editor_pt_BR.ts)",
+    )
     args = parser.parse_args()
 
     left = _read_ts(args.left)
     right = _read_ts(args.right)
     keys = sorted(set(left.keys()) | set(right.keys()))
 
-    left_translated = sum(1 for k in keys if left.get(k, {}).get("translated"))
-    right_translated = sum(1 for k in keys if right.get(k, {}).get("translated"))
+    left_translated = sum(
+        1 for k in keys if left.get(k, {}).get("translated")
+    )
+    right_translated = sum(
+        1 for k in keys if right.get(k, {}).get("translated")
+    )
 
     both_translated = 0
     same = 0
@@ -50,20 +67,24 @@ def main():
     right_only = 0
 
     for key in keys:
-        l = left.get(key, {"translated": False, "text": ""})
-        r = right.get(key, {"translated": False, "text": ""})
-        if l["translated"] and r["translated"]:
+        left_entry = left.get(key, {"translated": False, "text": ""})
+        right_entry = right.get(key, {"translated": False, "text": ""})
+        if left_entry["translated"] and right_entry["translated"]:
             both_translated += 1
-            if l["text"] == r["text"]:
+            if left_entry["text"] == right_entry["text"]:
                 same += 1
             else:
                 different += 1
-        elif l["translated"]:
+        elif left_entry["translated"]:
             left_only += 1
-        elif r["translated"]:
+        elif right_entry["translated"]:
             right_only += 1
 
-    diff_ratio = (different / both_translated * 100.0) if both_translated else 0.0
+    diff_ratio = (
+        different / both_translated * 100.0
+        if both_translated
+        else 0.0
+    )
 
     print(f"Total source messages: {len(keys)}")
     print(f"Left translated: {left_translated}")
@@ -79,13 +100,17 @@ def main():
         print("\nSample differences (up to 20):")
         shown = 0
         for key in keys:
-            l = left.get(key, {"translated": False, "text": ""})
-            r = right.get(key, {"translated": False, "text": ""})
-            if l["translated"] and r["translated"] and l["text"] != r["text"]:
+            left_entry = left.get(key, {"translated": False, "text": ""})
+            right_entry = right.get(key, {"translated": False, "text": ""})
+            if (
+                left_entry["translated"]
+                and right_entry["translated"]
+                and left_entry["text"] != right_entry["text"]
+            ):
                 ctx, source = key
                 print(f"- [{ctx}] {source}")
-                print(f"  L: {l['text']}")
-                print(f"  R: {r['text']}")
+                print(f"  L: {left_entry['text']}")
+                print(f"  R: {right_entry['text']}")
                 shown += 1
                 if shown >= 20:
                     break

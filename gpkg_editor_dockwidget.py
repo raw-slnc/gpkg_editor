@@ -2,15 +2,14 @@
 import os
 import re
 import sip
+import sys
 from datetime import datetime
 
 from qgis.PyQt import uic
 from qgis.PyQt.QtWidgets import (
-    QAbstractItemView,
     QApplication,
     QDialog,
     QDialogButtonBox,
-    QFileDialog,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -24,6 +23,7 @@ from qgis.PyQt.QtWidgets import (
     QTableWidgetItem,
     QMessageBox,
     QHeaderView,
+    QDockWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -67,6 +67,77 @@ COLOR_EDITABLE = QBrush(QColor(0, 0, 255))   # 青: 編集可能（未編集）
 COLOR_EDITED = QBrush(QColor(255, 0, 0))      # 赤: 編集済み
 
 
+class GpkgEditorDockWidget(QDockWidget):
+    """Floating 時に Alt+Tab へ出せるよう調整する Dock。"""
+
+    def __init__(self, title, parent=None):
+        super().__init__(title, parent)
+        self._is_floating_fullscreen = False
+        self._pre_fullscreen_geometry = None
+        self.topLevelChanged.connect(self._on_floating_state_changed)
+
+    def _on_floating_state_changed(self, is_floating):
+        widget = self.widget()
+        if hasattr(widget, '_on_floating_state_changed'):
+            widget._on_floating_state_changed(is_floating)
+        if not is_floating:
+            self._is_floating_fullscreen = False
+            self._pre_fullscreen_geometry = None
+        self._sync_floating_window_flags(is_floating)
+
+    def toggle_floating_fullscreen(self, checked):
+        if not self.isFloating():
+            return False
+
+        if checked:
+            self._pre_fullscreen_geometry = self.geometry()
+            self.showMaximized()
+            self._is_floating_fullscreen = True
+        else:
+            self.showNormal()
+            if self._pre_fullscreen_geometry is not None:
+                self.setGeometry(self._pre_fullscreen_geometry)
+            self._pre_fullscreen_geometry = None
+            self._is_floating_fullscreen = False
+        return True
+
+    def _sync_floating_window_flags(self, is_floating):
+        """Use a normal top-level window when floating so Alt+Tab can target it."""
+        if is_floating:
+            geometry = self.geometry()
+            self.setWindowFlag(Qt.WindowType.Tool, False)
+            self.setWindowFlag(Qt.WindowType.Window, True)
+            self.show()
+            if geometry.isValid():
+                self.setGeometry(geometry)
+            self._detach_native_window_owner()
+
+    def _detach_native_window_owner(self):
+        """Clear the Windows owner so floating docks remain visible in Alt+Tab."""
+        if not sys.platform.startswith("win"):
+            return
+        try:
+            import ctypes
+
+            user32 = ctypes.windll.user32
+            set_long_ptr = getattr(user32, "SetWindowLongPtrW", user32.SetWindowLongW)
+            get_long_ptr = getattr(user32, "GetWindowLongPtrW", user32.GetWindowLongW)
+            hwnd = int(self.winId())
+            gwlp_hwndparent = -8
+            gwl_exstyle = -20
+            ws_ex_appwindow = 0x00040000
+            ws_ex_toolwindow = 0x00000080
+            swp_flags = 0x0001 | 0x0002 | 0x0004 | 0x0020
+
+            set_long_ptr(hwnd, gwlp_hwndparent, 0)
+            ex_style = get_long_ptr(hwnd, gwl_exstyle)
+            ex_style = (ex_style | ws_ex_appwindow) & ~ws_ex_toolwindow
+            set_long_ptr(hwnd, gwl_exstyle, ex_style)
+            user32.SetWindowPos(hwnd, None, 0, 0, 0, 0, swp_flags)
+        except (OSError, AttributeError, ValueError):
+            pass
+
+
 class GpkgEditorWindow(QWidget, FORM_CLASS):
     """GPKG編集用ウィンドウ。"""
 
@@ -81,8 +152,8 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         super().__init__(parent)
         self.setupUi(self)
 
-
         self._plugin_dir = plugin_dir or os.path.dirname(__file__)
+        self._dock_widget = None
         self._set_language_callback = set_language_callback
         self._get_language_callback = get_language_callback
         self._language_cycle = ['ja', 'en', 'es', 'pt', 'de']
@@ -206,6 +277,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         # 前回セッションで保存された一時レイヤーを起動時に削除
         self._cleanup_orphan_temp_layers()
+
+    def attach_dock_widget(self, dock_widget):
+        self._dock_widget = dock_widget
+        self.chkFullscreen.setEnabled(dock_widget.isFloating())
 
     def _current_language_code(self):
         if self._get_language_callback:
@@ -384,6 +459,13 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         吸着・分離操作では一時的に False が発火するため、1イベントループ後に判定する。"""
         if not visible:
             QTimer.singleShot(0, self._on_maybe_hidden)
+
+    def _on_floating_state_changed(self, is_floating):
+        self.chkFullscreen.setEnabled(is_floating)
+        if not is_floating and self.chkFullscreen.isChecked():
+            self.chkFullscreen.blockSignals(True)
+            self.chkFullscreen.setChecked(False)
+            self.chkFullscreen.blockSignals(False)
 
     def _on_maybe_hidden(self):
         """ドックが本当に非表示になった場合のみクリーンアップする。"""
@@ -816,17 +898,12 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
     def _on_fullscreen_toggled(self, checked):
         """全画面表示チェックの切り替え処理。フロート中のみ有効。"""
-        dock = self.parentWidget()
-        if not dock or not getattr(dock, 'isFloating', lambda: False)():
+        dock = self._dock_widget
+        if dock is None or not dock.toggle_floating_fullscreen(checked):
             self.chkFullscreen.blockSignals(True)
             self.chkFullscreen.setChecked(False)
             self.chkFullscreen.blockSignals(False)
             return
-        win = dock.window()
-        if checked:
-            win.showMaximized()
-        else:
-            win.showNormal()
 
     def _on_table_row_changed(self, current, _previous):
         """テーブル行選択→マップ中心移動（ロック中は移動しない）。

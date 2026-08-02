@@ -10,12 +10,8 @@ from qgis.core import (
     QgsVectorFileWriter,
     QgsProject,
     QgsFeature,
-    QgsField,
-    QgsFields,
     QgsFeatureRequest,
-    QgsCoordinateTransformContext,
 )
-from qgis.PyQt.QtCore import QVariant
 
 
 class GpkgDataManager:
@@ -263,13 +259,14 @@ class GpkgDataManager:
 
         conn = sqlite3.connect(self._db_path)
         try:
-            placeholders = ','.join('?' for _ in fids)
+            fid_set = set(fids)
             rows = conn.execute(
-                f'SELECT orig_fid, col_name, value FROM edits '  # nosec B608
-                f'WHERE plan_name = ? AND orig_fid IN ({placeholders})',
-                [plan_name] + list(fids),
+                'SELECT orig_fid, col_name, value FROM edits WHERE plan_name = ?',
+                (plan_name,),
             ).fetchall()
             for orig_fid, col_name, value in rows:
+                if orig_fid not in fid_set:
+                    continue
                 if col_name in edit_cols:
                     if orig_fid not in edit_data:
                         edit_data[orig_fid] = {}
@@ -455,13 +452,14 @@ class GpkgDataManager:
             return edit_data
         conn = sqlite3.connect(self._db_path)
         try:
-            placeholders = ','.join('?' for _ in fids)
+            fid_set = set(fids)
             rows = conn.execute(
-                f'SELECT orig_fid, col_name, value FROM edits '  # nosec B608
-                f'WHERE plan_name = ? AND orig_fid IN ({placeholders})',
-                [plan_name] + list(fids),
+                'SELECT orig_fid, col_name, value FROM edits WHERE plan_name = ?',
+                (plan_name,),
             ).fetchall()
             for orig_fid, col_name, value in rows:
+                if orig_fid not in fid_set:
+                    continue
                 if orig_fid not in edit_data:
                     edit_data[orig_fid] = {}
                 edit_data[orig_fid][col_name] = value
@@ -602,16 +600,17 @@ class GpkgDataManager:
 
     def update_export_history_field(self, record_id, field, value):
         """author または memo フィールドを更新する。"""
-        if field not in ('author', 'memo'):
+        if field == 'author':
+            query = 'UPDATE export_history SET author = ? WHERE id = ?'
+        elif field == 'memo':
+            query = 'UPDATE export_history SET memo = ? WHERE id = ?'
+        else:
             return False
         conn = self._open_db()
         if not conn:
             return False
         try:
-            conn.execute(
-                f'UPDATE export_history SET {field} = ? WHERE id = ?',  # nosec B608
-                (value, record_id),
-            )
+            conn.execute(query, (value, record_id))
             conn.commit()
             return True
         finally:
@@ -721,11 +720,11 @@ class GpkgDataManager:
             }
             orphan_edit_plans = list(edit_plan_names - plan_names)
             if orphan_edit_plans:
-                placeholders = ','.join('?' for _ in orphan_edit_plans)
-                conn.execute(
-                    f'DELETE FROM edits WHERE plan_name IN ({placeholders})',  # nosec B608
-                    orphan_edit_plans,
-                )
+                for orphan_name in orphan_edit_plans:
+                    conn.execute(
+                        'DELETE FROM edits WHERE plan_name = ?',
+                        (orphan_name,),
+                    )
 
             # export_history: 存在しない計画名のレコードを削除
             history_names = {
@@ -734,11 +733,11 @@ class GpkgDataManager:
             }
             orphan_names = list(history_names - plan_names)
             if orphan_names:
-                placeholders = ','.join('?' for _ in orphan_names)
-                conn.execute(
-                    f'DELETE FROM export_history WHERE plan_name IN ({placeholders})',  # nosec B608
-                    orphan_names,
-                )
+                for orphan_name in orphan_names:
+                    conn.execute(
+                        'DELETE FROM export_history WHERE plan_name = ?',
+                        (orphan_name,),
+                    )
 
             if orphan_edit_plans or orphan_names:
                 conn.commit()
