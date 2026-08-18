@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import os
-import re
 import csv
 import json
 import sqlite3
@@ -222,26 +221,6 @@ class GpkgDataManager:
                 conn.commit()
         except Exception:  # nosec B110
             pass
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS export_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                plan_name TEXT NOT NULL,
-                exported_at TEXT NOT NULL,
-                filename TEXT NOT NULL,
-                file_type TEXT NOT NULL,
-                feature_count INTEGER NOT NULL DEFAULT 0,
-                edited_col_count INTEGER NOT NULL DEFAULT 0,
-                author TEXT NOT NULL DEFAULT '',
-                memo TEXT NOT NULL DEFAULT '',
-                is_deleted INTEGER NOT NULL DEFAULT 0
-            )
-        ''')
-        # 既存DBへの列追加（マイグレーション）
-        try:
-            conn.execute('ALTER TABLE export_history ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0')
-            conn.commit()
-        except Exception:  # nosec B110
-            pass
         conn.commit()
         return conn
 
@@ -393,7 +372,6 @@ class GpkgDataManager:
         try:
             conn.execute('DELETE FROM edits WHERE plan_name = ?', (name,))
             conn.execute('DELETE FROM plans WHERE name = ?', (name,))
-            conn.execute('DELETE FROM export_history WHERE plan_name = ?', (name,))
             conn.commit()
             return True
         finally:
@@ -547,163 +525,8 @@ class GpkgDataManager:
                 writer.writerow(row)
         return True
 
-    # ──────────────────────────────────────────────
-    # エクスポート履歴
-    # ──────────────────────────────────────────────
-
-    def save_export_history(self, plan_name, filename, file_type,
-                            feature_count, edited_col_count, author=''):
-        """エクスポート結果を export_history に記録する。"""
-        conn = self._open_db()
-        if not conn:
-            return None
-        try:
-            from datetime import datetime
-            exported_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            cur = conn.execute(
-                'INSERT INTO export_history '
-                '(plan_name, exported_at, filename, file_type, '
-                ' feature_count, edited_col_count, author, memo) '
-                'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                (plan_name, exported_at, filename, file_type,
-                 feature_count, edited_col_count, author, ''),
-            )
-            conn.commit()
-            return cur.lastrowid
-        finally:
-            conn.close()
-
-    def list_export_history(self, plan_name):
-        """エクスポート履歴を新しい順で返す（削除済みフラグも含む）。"""
-        if not self._db_path or not os.path.exists(self._db_path):
-            return []
-        conn = sqlite3.connect(self._db_path)
-        try:
-            rows = conn.execute(
-                'SELECT id, exported_at, filename, file_type, '
-                'feature_count, edited_col_count, author, memo, is_deleted '
-                'FROM export_history WHERE plan_name = ? '
-                'ORDER BY exported_at DESC',
-                (plan_name,),
-            ).fetchall()
-            return [
-                {'id': r[0], 'exported_at': r[1], 'filename': r[2],
-                 'file_type': r[3], 'feature_count': r[4],
-                 'edited_col_count': r[5], 'author': r[6] or '',
-                 'memo': r[7] or '', 'is_deleted': bool(r[8])}
-                for r in rows
-            ]
-        except sqlite3.OperationalError:
-            return []
-        finally:
-            conn.close()
-
-    def update_export_history_field(self, record_id, field, value):
-        """author または memo フィールドを更新する。"""
-        if field == 'author':
-            query = 'UPDATE export_history SET author = ? WHERE id = ?'
-        elif field == 'memo':
-            query = 'UPDATE export_history SET memo = ? WHERE id = ?'
-        else:
-            return False
-        conn = self._open_db()
-        if not conn:
-            return False
-        try:
-            conn.execute(query, (value, record_id))
-            conn.commit()
-            return True
-        finally:
-            conn.close()
-
-    def delete_export_history(self, record_id):
-        """エクスポート履歴レコードをソフトデリート（is_deleted=1）する。"""
-        conn = self._open_db()
-        if not conn:
-            return False
-        try:
-            conn.execute(
-                'UPDATE export_history SET is_deleted = 1 WHERE id = ?',
-                (record_id,),
-            )
-            conn.commit()
-            return True
-        finally:
-            conn.close()
-
-    def migrate_old_filename_pattern(self, export_folder):
-        """旧命名パターン {計画名}_{レイヤー名}_{番号}_{日付}_{時間}.{拡張子} のファイルを
-        新パターン {計画名}_{番号}_{日付}_{時間}.{拡張子} に一括変換する。
-        ファイルのリネームと export_history レコードの filename 更新を行う。
-        Returns: {旧ファイル名: 新ファイル名} の辞書（変更があったもののみ）
-        """
-        if not self._db_path or not os.path.exists(self._db_path):
-            return {}
-
-        conn = sqlite3.connect(self._db_path)
-        conn.execute('PRAGMA journal_mode=DELETE')
-        renamed = {}
-        try:
-            rows = conn.execute(
-                'SELECT id, plan_name, filename FROM export_history'
-            ).fetchall()
-
-            for rec_id, plan_name, old_filename in rows:
-                sanitized = re.sub(r'[\\/:*?"<>|]', '_', plan_name)
-                new_pattern = re.compile(
-                    r'^' + re.escape(sanitized) + r'_\d{4}_\d{8}_\d{6}\.(gpkg|csv)$',
-                    re.IGNORECASE,
-                )
-                if new_pattern.match(old_filename):
-                    continue  # 既に新パターン
-
-                # 旧パターンから番号・日付・時間を抽出
-                # {計画名}_{レイヤー名}_{番号}_{日付}_{時間}.{拡張子}
-                old_pattern = re.compile(
-                    r'^' + re.escape(sanitized) + r'_.+_(\d{4})_(\d{8})_(\d{6})\.(gpkg|csv)$',
-                    re.IGNORECASE,
-                )
-                m = old_pattern.match(old_filename)
-                if not m:
-                    continue  # 不明なパターン、スキップ
-
-                num, date, time_, ext = m.group(1), m.group(2), m.group(3), m.group(4)
-                new_filename = f'{sanitized}_{num}_{date}_{time_}.{ext}'
-
-                old_path = os.path.join(export_folder, old_filename)
-                new_path = os.path.join(export_folder, new_filename)
-                old_exists = os.path.exists(old_path)
-                new_exists = os.path.exists(new_path)
-
-                if not old_exists and not new_exists:
-                    # どちらも存在しない（別環境からの移行等）→ DBは更新しない
-                    continue
-
-                # ファイルリネーム（旧ファイルが存在し新ファイルがない場合のみ）
-                if old_exists and not new_exists:
-                    os.rename(old_path, new_path)
-
-                # DB更新（ファイルが実在する場合のみここに到達）
-                conn.execute(
-                    'UPDATE export_history SET filename = ? WHERE id = ?',
-                    (new_filename, rec_id),
-                )
-                renamed[old_filename] = new_filename
-
-            if renamed:
-                conn.commit()
-        except Exception:  # nosec B110
-            pass
-        finally:
-            conn.close()
-
-        return renamed
-
     def cleanup_orphan_data(self):
-        """孤立した edits・export_history レコードを削除する。
-        - edits: plans テーブルに存在しない plan_name のレコードを削除
-        - export_history: plans テーブルに存在しない plan_name のレコードを削除
-        """
+        """孤立した edits レコードを削除する（plans テーブルに存在しない plan_name のもの）。"""
         conn = self._open_db()
         if not conn:
             return
@@ -713,7 +536,6 @@ class GpkgDataManager:
                 conn.execute('SELECT name FROM plans').fetchall()
             }
 
-            # edits: 存在しない計画名のレコードを削除
             edit_plan_names = {
                 row[0] for row in
                 conn.execute('SELECT DISTINCT plan_name FROM edits').fetchall()
@@ -725,21 +547,6 @@ class GpkgDataManager:
                         'DELETE FROM edits WHERE plan_name = ?',
                         (orphan_name,),
                     )
-
-            # export_history: 存在しない計画名のレコードを削除
-            history_names = {
-                row[0] for row in
-                conn.execute('SELECT DISTINCT plan_name FROM export_history').fetchall()
-            }
-            orphan_names = list(history_names - plan_names)
-            if orphan_names:
-                for orphan_name in orphan_names:
-                    conn.execute(
-                        'DELETE FROM export_history WHERE plan_name = ?',
-                        (orphan_name,),
-                    )
-
-            if orphan_edit_plans or orphan_names:
                 conn.commit()
         except Exception:  # nosec B110
             pass
