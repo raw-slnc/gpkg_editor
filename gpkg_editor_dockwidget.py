@@ -1,24 +1,19 @@
 # -*- coding: utf-8 -*-
 import os
 import re
-import sip
-import sys
 from datetime import datetime
 
-from qgis.PyQt import uic
+from qgis.PyQt import sip, uic
 from qgis.PyQt.QtWidgets import (
+    QAbstractItemView,
     QApplication,
     QDialog,
     QDialogButtonBox,
     QFrame,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QPlainTextEdit,
     QPushButton,
-    QScrollArea,
-    QSizePolicy,
     QSplitter,
     QTableWidgetItem,
     QMessageBox,
@@ -27,14 +22,15 @@ from qgis.PyQt.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from qgis.PyQt.QtCore import Qt, QEvent, QItemSelection, QItemSelectionModel, QTimer, QUrl
-from qgis.PyQt.QtGui import QColor, QBrush, QPainter, QPen, QPixmap, QDesktopServices
+from qgis.PyQt.QtCore import (
+    Qt, QEvent, QItemSelection, QItemSelectionModel, QTimer,
+)
+from qgis.PyQt.QtGui import QColor, QBrush, QPainter, QPen, QPixmap
 from qgis.core import (
     QgsProject,
     QgsCoordinateTransform,
     QgsFeatureRequest,
     QgsGeometry,
-    QgsLayerTreeGroup,
     QgsPointXY,
     QgsRectangle,
     QgsVectorLayer,
@@ -46,7 +42,9 @@ from qgis.core import (
     QgsSimpleLineSymbolLayer,
     QgsUnitTypes,
 )
-from qgis.gui import QgsRubberBand, QgsVertexMarker, QgsMapToolPan, QgsMapToolZoom
+from qgis.gui import (
+    QgsRubberBand, QgsVertexMarker, QgsMapToolPan, QgsMapToolZoom,
+)
 
 from .gpkg_data_manager import GpkgDataManager
 from .status_expression import evaluate_row_expr
@@ -68,7 +66,7 @@ COLOR_EDITED = QBrush(QColor(255, 0, 0))      # 赤: 編集済み
 
 
 class GpkgEditorDockWidget(QDockWidget):
-    """Floating 時に Alt+Tab へ出せるよう調整する Dock。"""
+    """QGIS に格納する標準 Dock。"""
 
     def __init__(self, title, parent=None):
         super().__init__(title, parent)
@@ -83,7 +81,6 @@ class GpkgEditorDockWidget(QDockWidget):
         if not is_floating:
             self._is_floating_fullscreen = False
             self._pre_fullscreen_geometry = None
-        self._sync_floating_window_flags(is_floating)
 
     def toggle_floating_fullscreen(self, checked):
         if not self.isFloating():
@@ -100,42 +97,6 @@ class GpkgEditorDockWidget(QDockWidget):
             self._pre_fullscreen_geometry = None
             self._is_floating_fullscreen = False
         return True
-
-    def _sync_floating_window_flags(self, is_floating):
-        """Use a normal top-level window when floating so Alt+Tab can target it."""
-        if is_floating:
-            geometry = self.geometry()
-            self.setWindowFlag(Qt.WindowType.Tool, False)
-            self.setWindowFlag(Qt.WindowType.Window, True)
-            self.show()
-            if geometry.isValid():
-                self.setGeometry(geometry)
-            self._detach_native_window_owner()
-
-    def _detach_native_window_owner(self):
-        """Clear the Windows owner so floating docks remain visible in Alt+Tab."""
-        if not sys.platform.startswith("win"):
-            return
-        try:
-            import ctypes
-
-            user32 = ctypes.windll.user32
-            set_long_ptr = getattr(user32, "SetWindowLongPtrW", user32.SetWindowLongW)
-            get_long_ptr = getattr(user32, "GetWindowLongPtrW", user32.GetWindowLongW)
-            hwnd = int(self.winId())
-            gwlp_hwndparent = -8
-            gwl_exstyle = -20
-            ws_ex_appwindow = 0x00040000
-            ws_ex_toolwindow = 0x00000080
-            swp_flags = 0x0001 | 0x0002 | 0x0004 | 0x0020
-
-            set_long_ptr(hwnd, gwlp_hwndparent, 0)
-            ex_style = get_long_ptr(hwnd, gwl_exstyle)
-            ex_style = (ex_style | ws_ex_appwindow) & ~ws_ex_toolwindow
-            set_long_ptr(hwnd, gwl_exstyle, ex_style)
-            user32.SetWindowPos(hwnd, None, 0, 0, 0, 0, swp_flags)
-        except (OSError, AttributeError, ValueError):
-            pass
 
 
 class GpkgEditorWindow(QWidget, FORM_CLASS):
@@ -154,6 +115,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         self._plugin_dir = plugin_dir or os.path.dirname(__file__)
         self._dock_widget = None
+        self._window_dialog = None
+        self._window_mode_callback = None
+        self._suspend_hide_cleanup = False
         self._set_language_callback = set_language_callback
         self._get_language_callback = get_language_callback
         self._language_cycle = ['ja', 'en', 'es', 'pt', 'de']
@@ -166,7 +130,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         }
 
         # 左パネル/右パネルをQSplitterに収める
-        self._splitter = QSplitter(Qt.Horizontal, self)
+        self._splitter = QSplitter(Qt.Orientation.Horizontal, self)
         self.mainLayout.removeWidget(self.leftPanel)
         self.mainLayout.removeWidget(self.rightPanel)
         self._splitter.addWidget(self.leftPanel)
@@ -219,6 +183,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.chkLock.toggled.connect(self._on_lock_toggled)
         self.chkOverwrite.toggled.connect(self._on_overwrite_toggled)
         self.chkFullscreen.toggled.connect(self._on_fullscreen_toggled)
+        self.chkWindowMode.toggled.connect(self._on_window_mode_toggled)
         self.btnLanguage.clicked.connect(self._cycle_language)
         self.btnPlanSave.clicked.connect(self._on_plan_save)
         self.btnPlanDelete.clicked.connect(self._on_plan_delete)
@@ -231,11 +196,11 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         # 複数選択を有効化（セル編集を維持するため SelectItems のまま）
         self.tableFeatures.setSelectionMode(
-            self.tableFeatures.ExtendedSelection
+            QAbstractItemView.SelectionMode.ExtendedSelection
         )
 
         # テーブルのフレーム枠線を除去（下辺の横線を消す）
-        self.tableFeatures.setFrameShape(QFrame.NoFrame)
+        self.tableFeatures.setFrameShape(QFrame.Shape.NoFrame)
 
         # テーブル行選択→マップ中心移動（ロック中のみ有効）＋ステータス更新
         self.tableFeatures.selectionModel().currentRowChanged.connect(
@@ -253,7 +218,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         QgsProject.instance().layersRemoved.connect(self._on_layers_removed)
 
         # マップ選択変更の監視
-        self.iface.mapCanvas().selectionChanged.connect(self._on_selection_changed)
+        self.iface.mapCanvas().selectionChanged.connect(
+            self._on_selection_changed
+        )
         self.iface.mapCanvas().installEventFilter(self)
         self.iface.mapCanvas().viewport().installEventFilter(self)
 
@@ -266,13 +233,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         # 計画コピーモード: ポップアップが閉じたときにキャンセル検知
         self.cmbPlan.view().installEventFilter(self)
 
-        # 履歴パネル
-        self._history_mode = False
-        self._history_scroll_layout = None
-        self._build_history_panel()
-        self.btnHistory.setEnabled(False)
-        self.btnHistory.toggled.connect(self._on_history_toggled)
-
         self.retranslate_ui()
 
         # 前回セッションで保存された一時レイヤーを起動時に削除
@@ -280,7 +240,28 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
     def attach_dock_widget(self, dock_widget):
         self._dock_widget = dock_widget
+        self._window_dialog = None
+        self.set_window_mode_checked(False)
         self.chkFullscreen.setEnabled(dock_widget.isFloating())
+        self.show()
+
+    def attach_window_dialog(self, dialog):
+        self._dock_widget = None
+        self._window_dialog = dialog
+        self.set_window_mode_checked(True)
+        self.chkFullscreen.setEnabled(True)
+        self.show()
+
+    def set_window_mode_callback(self, callback):
+        self._window_mode_callback = callback
+
+    def set_window_mode_checked(self, checked):
+        self.chkWindowMode.blockSignals(True)
+        self.chkWindowMode.setChecked(checked)
+        self.chkWindowMode.blockSignals(False)
+
+    def set_hide_cleanup_suspended(self, suspended):
+        self._suspend_hide_cleanup = suspended
 
     def _current_language_code(self):
         if self._get_language_callback:
@@ -297,7 +278,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         if current not in self._language_cycle:
             current = 'ja'
         idx = self._language_cycle.index(current)
-        next_locale = self._language_cycle[(idx + 1) % len(self._language_cycle)]
+        next_locale = self._language_cycle[
+            (idx + 1) % len(self._language_cycle)
+        ]
         if self._set_language_callback:
             self._set_language_callback(next_locale)
         self.retranslate_ui()
@@ -307,7 +290,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.groupLayer.setTitle(self.tr('レイヤー'))
         self.lblLayer.setText(self.tr('GPKGレイヤー:'))
         self.cmbGpkgLayer.setToolTip(self.tr('プロジェクト内のGPKGレイヤーを選択'))
-        if self.cmbGpkgLayer.count() > 0 and self.cmbGpkgLayer.itemData(0) is None:
+        if (
+            self.cmbGpkgLayer.count() > 0
+            and self.cmbGpkgLayer.itemData(0) is None
+        ):
             self.cmbGpkgLayer.setItemText(0, self.tr('-- 選択してください --'))
         self.groupPlan.setTitle(self.tr('計画'))
         self.lblPlan.setText(self.tr('計画:'))
@@ -329,7 +315,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.btnColumnConfig.setText(self.tr('カラム設定'))
         self.btnExportGpkg.setText(self.tr('GPKG出力'))
         self.btnExportCsv.setText(self.tr('CSV出力'))
-        self.btnLock.setText(self.tr('ロック中') if self._locked else self.tr('ロック'))
+        self.btnLock.setText(
+            self.tr('ロック中') if self._locked else self.tr('ロック')
+        )
         self.chkLock.setText(self.tr('ロック'))
         self.chkOverwrite.setText(self.tr('GPKGレイヤーに上書き保存する'))
         self.chkPlanOnly.setText(self.tr('計画範囲のみ出力'))
@@ -355,84 +343,112 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.groupStatusDisplay.setTitle(self.tr('ステータス'))
         self.chkPanelClose.setText(self.tr('パネルを閉じる'))
         self.chkFullscreen.setText(self.tr('全画面表示'))
+        self.chkWindowMode.setText(self.tr('別ウィンドウ表示'))
         self.lblLegendDisplay.setText(self.tr('■ 表示のみ'))
         self.lblLegendEditable.setText(self.tr('■ 編集可能'))
         self.lblLegendEdited.setText(self.tr('■ 編集済み'))
         self.lblLegendInfo.setText(self.tr('■ 情報（後列）'))
-        self.btnHistory.setText(self.tr('履歴'))
         self._update_language_button()
-        if self._history_mode:
-            self._refresh_history_panel()
 
     def eventFilter(self, obj, event):
         # ロック中: パン・ズームツール操作のみブロック（選択ツール等は通す）
         canvas = self.iface.mapCanvas()
         if self._locked and obj in (canvas, canvas.viewport()):
-            if event.type() == QEvent.Wheel:
+            if event.type() == QEvent.Type.Wheel:
                 return True
             if event.type() in (
-                QEvent.MouseButtonPress,
-                QEvent.MouseButtonRelease,
-                QEvent.MouseButtonDblClick,
-                QEvent.MouseMove,
+                QEvent.Type.MouseButtonPress,
+                QEvent.Type.MouseButtonRelease,
+                QEvent.Type.MouseButtonDblClick,
+                QEvent.Type.MouseMove,
             ):
                 tool = canvas.mapTool()
                 if isinstance(tool, (QgsMapToolPan, QgsMapToolZoom)):
                     return True
 
         # Shift+ホイール → 横スクロール
-        if obj == self.tableFeatures.viewport() and event.type() == QEvent.Wheel:
-            if event.modifiers() == Qt.ShiftModifier:
+        if (
+            obj == self.tableFeatures.viewport()
+            and event.type() == QEvent.Type.Wheel
+        ):
+            if event.modifiers() == Qt.KeyboardModifier.ShiftModifier:
                 sb = self.tableFeatures.horizontalScrollBar()
                 sb.setValue(sb.value() - event.angleDelta().y())
                 return True
 
         # Ctrl+C → 選択セルをタブ区切りでコピー
-        if obj == self.tableFeatures and event.type() == QEvent.KeyPress:
-            if event.key() == Qt.Key_C and event.modifiers() == Qt.ControlModifier:
+        if obj == self.tableFeatures and event.type() == QEvent.Type.KeyPress:
+            if (
+                event.key() == Qt.Key.Key_C
+                and event.modifiers() == Qt.KeyboardModifier.ControlModifier
+            ):
                 self._copy_selected_cells()
                 return True
 
         # Ctrl+V → クリップボードの内容を選択セルからペースト
-        if obj == self.tableFeatures and event.type() == QEvent.KeyPress:
-            if event.key() == Qt.Key_V and event.modifiers() == Qt.ControlModifier:
-                if self.tableFeatures.state() != self.tableFeatures.EditingState:
+        if obj == self.tableFeatures and event.type() == QEvent.Type.KeyPress:
+            if (
+                event.key() == Qt.Key.Key_V
+                and event.modifiers() == Qt.KeyboardModifier.ControlModifier
+            ):
+                if (
+                    self.tableFeatures.state()
+                    != QAbstractItemView.State.EditingState
+                ):
                     self._paste_to_selected_cells()
                     return True
 
         # Ctrl+(Shift+)矢印キー → 端セルへ移動または範囲選択
-        if obj == self.tableFeatures and event.type() == QEvent.KeyPress:
+        if obj == self.tableFeatures and event.type() == QEvent.Type.KeyPress:
             mods = event.modifiers()
             key = event.key()
-            if (mods in (Qt.ControlModifier, Qt.ControlModifier | Qt.ShiftModifier)
-                    and key in (Qt.Key_Up, Qt.Key_Down, Qt.Key_Left, Qt.Key_Right)
-                    and self.tableFeatures.state() != self.tableFeatures.EditingState):
+            ctrl = Qt.KeyboardModifier.ControlModifier
+            ctrl_shift = ctrl | Qt.KeyboardModifier.ShiftModifier
+            arrow_keys = (
+                Qt.Key.Key_Up, Qt.Key.Key_Down,
+                Qt.Key.Key_Left, Qt.Key.Key_Right,
+            )
+            if (
+                mods in (ctrl, ctrl_shift)
+                and key in arrow_keys
+                and self.tableFeatures.state()
+                != QAbstractItemView.State.EditingState
+            ):
                 current = self.tableFeatures.currentIndex()
                 if current.isValid():
                     row, col = current.row(), current.column()
-                    if key == Qt.Key_Up:
+                    if key == Qt.Key.Key_Up:
                         target_row, target_col = 0, col
-                    elif key == Qt.Key_Down:
-                        target_row, target_col = self.tableFeatures.rowCount() - 1, col
-                    elif key == Qt.Key_Left:
+                    elif key == Qt.Key.Key_Down:
+                        target_row, target_col = (
+                            self.tableFeatures.rowCount() - 1, col
+                        )
+                    elif key == Qt.Key.Key_Left:
                         target_row, target_col = row, 0
                     else:  # Key_Right
-                        target_row, target_col = row, self.tableFeatures.columnCount() - 1
-                    if mods == (Qt.ControlModifier | Qt.ShiftModifier):
-                        target = self.tableFeatures.model().index(target_row, target_col)
+                        target_row, target_col = (
+                            row, self.tableFeatures.columnCount() - 1
+                        )
+                    if mods == ctrl_shift:
+                        target = self.tableFeatures.model().index(
+                            target_row, target_col
+                        )
                         sel = QItemSelection(current, target)
                         self.tableFeatures.selectionModel().select(
-                            sel, QItemSelectionModel.ClearAndSelect
+                            sel,
+                            QItemSelectionModel.SelectionFlag.ClearAndSelect,
                         )
                     else:
-                        self.tableFeatures.setCurrentCell(target_row, target_col)
+                        self.tableFeatures.setCurrentCell(
+                            target_row, target_col
+                        )
                     return True
 
         # Enter キー → 編集開始/確定トグル
-        if obj == self.tableFeatures and event.type() == QEvent.KeyPress:
-            if event.key() in (Qt.Key_Return, Qt.Key_Enter):
+        if obj == self.tableFeatures and event.type() == QEvent.Type.KeyPress:
+            if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
                 state = self.tableFeatures.state()
-                if state == self.tableFeatures.EditingState:
+                if state == QAbstractItemView.State.EditingState:
                     # 編集中 → 確定（デフォルト動作に委譲）
                     return False
                 else:
@@ -442,13 +458,15 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                         item = self.tableFeatures.item(
                             current.row(), current.column()
                         )
-                        if item and (item.flags() & Qt.ItemIsEditable):
+                        if item and (
+                            item.flags() & Qt.ItemFlag.ItemIsEditable
+                        ):
                             self.tableFeatures.editItem(item)
                             return True
                 return False
 
         # 計画コピーモード中にポップアップが閉じた → キャンセル
-        if obj is self.cmbPlan.view() and event.type() == QEvent.Hide:
+        if obj is self.cmbPlan.view() and event.type() == QEvent.Type.Hide:
             if self._copy_mode:
                 QTimer.singleShot(0, self._exit_copy_mode)
 
@@ -469,6 +487,8 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
     def _on_maybe_hidden(self):
         """ドックが本当に非表示になった場合のみクリーンアップする。"""
+        if self._suspend_hide_cleanup:
+            return
         if not self.isVisible():
             self._remove_temp_layer()
             if self.data_manager.original_layer:
@@ -484,8 +504,12 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         except TypeError:
             pass
         try:
-            QgsProject.instance().layersAdded.disconnect(self._refresh_layer_combo)
-            QgsProject.instance().layersRemoved.disconnect(self._on_layers_removed)
+            QgsProject.instance().layersAdded.disconnect(
+                self._refresh_layer_combo
+            )
+            QgsProject.instance().layersRemoved.disconnect(
+                self._on_layers_removed
+            )
         except TypeError:
             pass
         self.data_manager.close()
@@ -551,7 +575,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
     def _update_thumbnail_for_layer(self):
         """レイヤー選択時にポイント判定でサムネイルアコーディオンを制御する。"""
         layer = self.data_manager.original_layer
-        is_point = bool(layer and layer.geometryType() == QgsWkbTypes.PointGeometry)
+        is_point = bool(
+            layer
+            and layer.geometryType() == QgsWkbTypes.GeometryType.PointGeometry
+        )
         self.btnThumbnailToggle.setEnabled(not is_point)
         if is_point and self.btnThumbnailToggle.isChecked():
             self.btnThumbnailToggle.setChecked(False)
@@ -577,7 +604,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self.lblThumbnail.clear()
             return
 
-        if layer.geometryType() == QgsWkbTypes.PointGeometry:
+        if layer.geometryType() == QgsWkbTypes.GeometryType.PointGeometry:
             return
 
         # ウィジェット幅から 16:8 サイズを決定
@@ -650,9 +677,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         # 描画
         pixmap = QPixmap(w, h)
-        pixmap.fill(Qt.black)
+        pixmap.fill(Qt.GlobalColor.black)
         painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.Antialiasing, False)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
 
         pen_feat = QPen(QColor(255, 255, 255))
         pen_feat.setWidth(1)
@@ -661,11 +688,11 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         geom_type = layer.geometryType()  # 0=Point, 1=Line, 2=Polygon
 
         for fid, geom in geoms.items():
-            if geom_type == QgsWkbTypes.PointGeometry:
+            if geom_type == QgsWkbTypes.GeometryType.PointGeometry:
                 pt = geom.centroid().asPoint()
                 px, py = to_px(pt.x(), pt.y())
                 painter.drawEllipse(px - 2, py - 2, 4, 4)
-            elif geom_type == QgsWkbTypes.LineGeometry:
+            elif geom_type == QgsWkbTypes.GeometryType.LineGeometry:
                 for part in geom.asGeometryCollection() or [geom]:
                     pts = part.asPolyline() or []
                     if not pts:
@@ -687,7 +714,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                             for ring in poly:
                                 for i in range(len(ring) - 1):
                                     x0, y0 = to_px(ring[i].x(), ring[i].y())
-                                    x1, y1 = to_px(ring[i+1].x(), ring[i+1].y())
+                                    x1, y1 = to_px(
+                                        ring[i + 1].x(), ring[i + 1].y()
+                                    )
                                     painter.drawLine(x0, y0, x1, y1)
                     else:
                         for ring in rings:
@@ -816,13 +845,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             QMessageBox.critical(self, self.tr('エラー'), str(e))
             return
 
-        # 旧命名パターンのファイルをマイグレーション
-        export_folder = self._get_export_folder()
-        renamed = self.data_manager.migrate_old_filename_pattern(export_folder)
-        if renamed:
-            self._migrate_loaded_layer_sources(renamed, export_folder)
-
-        # 孤立データのクリーンアップ（旧バージョンで発生した孤立 edits/export_history を削除）
+        # 孤立データのクリーンアップ（旧バージョンで発生した孤立 edits を削除）
         self.data_manager.cleanup_orphan_data()
 
         self.lblStatus.setText(self.tr('読込完了: {}').format(layer.name()))
@@ -851,7 +874,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
     def _on_column_config(self):
         columns = self.data_manager.get_original_fields()
         dlg = ColumnConfigDialog(columns, self.column_config, self)
-        if dlg.exec_() == ColumnConfigDialog.Accepted:
+        if dlg.exec() == ColumnConfigDialog.DialogCode.Accepted:
             self.column_config = dlg.get_config()
             self._mark_plan_dirty()
             if self._get_visible_cols():
@@ -889,7 +912,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
     def _select_features(self, fids):
         """テーブル選択をレイヤー選択に反映する。"""
-        layer = (self._temp_layer if self._temp_layer_valid() else None) or self.data_manager.original_layer
+        layer = (
+            (self._temp_layer if self._temp_layer_valid() else None)
+            or self.data_manager.original_layer
+        )
         if not layer:
             return
         self._syncing_selection = True
@@ -897,13 +923,27 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._syncing_selection = False
 
     def _on_fullscreen_toggled(self, checked):
-        """全画面表示チェックの切り替え処理。フロート中のみ有効。"""
+        """全画面表示チェックの切り替え処理。"""
         dock = self._dock_widget
-        if dock is None or not dock.toggle_floating_fullscreen(checked):
-            self.chkFullscreen.blockSignals(True)
-            self.chkFullscreen.setChecked(False)
-            self.chkFullscreen.blockSignals(False)
+        if dock is not None:
+            if dock.toggle_floating_fullscreen(checked):
+                return
+        elif self._window_dialog is not None:
+            if checked:
+                self._window_dialog.showMaximized()
+            else:
+                self._window_dialog.showNormal()
             return
+
+        self.chkFullscreen.blockSignals(True)
+        self.chkFullscreen.setChecked(False)
+        self.chkFullscreen.blockSignals(False)
+
+    def _on_window_mode_toggled(self, checked):
+        if self._window_mode_callback is None:
+            self.set_window_mode_checked(False)
+            return
+        self._window_mode_callback(checked)
 
     def _on_table_row_changed(self, current, _previous):
         """テーブル行選択→マップ中心移動（ロック中は移動しない）。
@@ -920,7 +960,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         if not selected_fids:
             item = self.tableFeatures.item(current.row(), 0)
             if item:
-                fid = item.data(Qt.UserRole)
+                fid = item.data(Qt.ItemDataRole.UserRole)
                 if fid is not None:
                     selected_fids = [fid]
         if not selected_fids:
@@ -931,12 +971,16 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         canvas_crs = canvas.mapSettings().destinationCrs()
         layer_crs = layer.crs()
         need_transform = (
-            layer_crs.isValid() and canvas_crs.isValid() and layer_crs != canvas_crs
+            layer_crs.isValid()
+            and canvas_crs.isValid()
+            and layer_crs != canvas_crs
         )
 
         def to_canvas_crs(point):
             if need_transform:
-                t = QgsCoordinateTransform(layer_crs, canvas_crs, QgsProject.instance())
+                t = QgsCoordinateTransform(
+                    layer_crs, canvas_crs, QgsProject.instance()
+                )
                 try:
                     return t.transform(point)
                 except Exception:
@@ -981,8 +1025,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         # ── ポイントレイヤー専用パス（一時レイヤーなし）──
         is_point = (
-            self.data_manager.original_layer and
-            self.data_manager.original_layer.geometryType() == QgsWkbTypes.PointGeometry
+            self.data_manager.original_layer
+            and self.data_manager.original_layer.geometryType()
+            == QgsWkbTypes.GeometryType.PointGeometry
         )
         if self._plan_active and is_point:
             self._clear_rubber_bands()
@@ -1010,7 +1055,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         """選択フィーチャーの位置にキャンバスを移動する（map→table同期用）。"""
         if self._locked:
             return
-        layer = (self._temp_layer if self._temp_layer_valid() else None) or self.data_manager.original_layer
+        layer = (
+            (self._temp_layer if self._temp_layer_valid() else None)
+            or self.data_manager.original_layer
+        )
         if not layer:
             return
         if not layer.selectedFeatureIds():
@@ -1056,7 +1104,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         for row in selected_rows:
             item = self.tableFeatures.item(row, 0)
             if item:
-                fid = item.data(Qt.UserRole)
+                fid = item.data(Qt.ItemDataRole.UserRole)
                 if fid is not None:
                     fids.append(fid)
         return fids
@@ -1110,7 +1158,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                     targets = [current]
             for idx in targets:
                 item = self.tableFeatures.item(idx.row(), idx.column())
-                if item and (item.flags() & Qt.ItemIsEditable):
+                if item and (item.flags() & Qt.ItemFlag.ItemIsEditable):
                     item.setText(value)
             return
 
@@ -1137,7 +1185,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                 if target_col >= col_count:
                     break
                 item = self.tableFeatures.item(target_row, target_col)
-                if item and (item.flags() & Qt.ItemIsEditable):
+                if item and (item.flags() & Qt.ItemFlag.ItemIsEditable):
                     item.setText(value)
 
     # ──────────────────────────────────────────────
@@ -1167,7 +1215,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             for row in range(self.tableFeatures.rowCount()):
                 item = self.tableFeatures.item(row, 0)
                 if item:
-                    fid = item.data(Qt.UserRole)
+                    fid = item.data(Qt.ItemDataRole.UserRole)
                     if fid in selected_ids:
                         self.tableFeatures.selectRow(row)
             self._syncing_selection = False
@@ -1181,7 +1229,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         if not layer or not self.data_manager.original_path:
             return False
         parts = layer.source().split('|')
-        if os.path.normpath(parts[0]) != os.path.normpath(self.data_manager.original_path):
+        if os.path.normpath(parts[0]) != os.path.normpath(
+            self.data_manager.original_path
+        ):
             return False
         # layername が取得できる場合は照合する（単一レイヤーGPKGは layername なしの場合あり）
         layername = None
@@ -1199,15 +1249,23 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             return
         # ポイントレイヤーは一時レイヤー不要
         orig = self.data_manager.original_layer
-        if orig and orig.geometryType() == QgsWkbTypes.PointGeometry:
+        if (
+            orig
+            and orig.geometryType() == QgsWkbTypes.GeometryType.PointGeometry
+        ):
             return
 
         layer_id = self.cmbGpkgLayer.currentData()
 
         # 同一ソースの一時レイヤーが既にある場合は再利用（GPKGを再オープンしない）
-        if (self._temp_layer_valid() and
-                self._temp_source_layer_id == layer_id):
-            fid_str = ",".join(str(f) for f in self._current_fids) if self._current_fids else "-1"
+        if (
+            self._temp_layer_valid()
+            and self._temp_source_layer_id == layer_id
+        ):
+            fid_str = (
+                ",".join(str(f) for f in self._current_fids)
+                if self._current_fids else "-1"
+            )
             self._temp_layer.setName(plan_name)
             self._temp_layer.setSubsetString(f"fid IN ({fid_str})")
             self._temp_layer.triggerRepaint()
@@ -1217,7 +1275,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._remove_temp_layer()
 
         # プロジェクトレイヤーの source URI をそのまま使う（テーブル名がファイル名と異なる場合に対応）
-        proj_layer = QgsProject.instance().mapLayer(layer_id) if layer_id else None
+        proj_layer = (
+            QgsProject.instance().mapLayer(layer_id) if layer_id else None
+        )
         if proj_layer:
             source_uri = proj_layer.source()
         else:
@@ -1248,7 +1308,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         self._temp_layer = temp
         self._temp_source_layer_id = layer_id
-        self._temp_layer.selectionChanged.connect(self._on_temp_selection_changed)
+        self._temp_layer.selectionChanged.connect(
+            self._on_temp_selection_changed
+        )
 
     def _cleanup_orphan_temp_layers(self):
         """起動時に前回セッションで残存した一時レイヤーを削除する。"""
@@ -1261,14 +1323,19 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
     def _temp_layer_valid(self):
         """一時レイヤーが存在し C++ オブジェクトが有効かどうかを返す。"""
-        return self._temp_layer is not None and not sip.isdeleted(self._temp_layer)
+        return (
+            self._temp_layer is not None
+            and not sip.isdeleted(self._temp_layer)
+        )
 
     def _remove_temp_layer(self):
         """一時レイヤーをプロジェクトから削除する。"""
         self._clear_rubber_bands()
         if self._temp_layer_valid():
             try:
-                self._temp_layer.selectionChanged.disconnect(self._on_temp_selection_changed)
+                self._temp_layer.selectionChanged.disconnect(
+                    self._on_temp_selection_changed
+                )
             except Exception:  # nosec B110
                 pass
             QgsProject.instance().removeMapLayer(self._temp_layer.id())
@@ -1308,14 +1375,14 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             pt = feat.geometry().centroid().asPoint()
             halo = QgsVertexMarker(canvas)
             halo.setCenter(pt)
-            halo.setIconType(QgsVertexMarker.ICON_CROSS)
+            halo.setIconType(QgsVertexMarker.IconType.ICON_CROSS)
             halo.setColor(QColor(255, 255, 255, 220))
             halo.setIconSize(16)
             halo.setPenWidth(3)
             self._vertex_markers.append(halo)
             marker = QgsVertexMarker(canvas)
             marker.setCenter(pt)
-            marker.setIconType(QgsVertexMarker.ICON_CROSS)
+            marker.setIconType(QgsVertexMarker.IconType.ICON_CROSS)
             marker.setColor(QColor(255, 0, 0, 220))
             marker.setIconSize(14)
             marker.setPenWidth(1)
@@ -1324,7 +1391,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
     def _show_single_rubber_band(self, fid):
         """指定fid のフィーチャーをラバーバンドで表示する。"""
         self._clear_rubber_bands()
-        layer = (self._temp_layer if self._temp_layer_valid() else None) if self._plan_active else self.data_manager.original_layer
+        if self._plan_active:
+            layer = self._temp_layer if self._temp_layer_valid() else None
+        else:
+            layer = self.data_manager.original_layer
         if not layer:
             return
         request = QgsFeatureRequest().setFilterFids([fid])
@@ -1339,10 +1409,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         rb.setToGeometry(feat.geometry(), layer)
         self._rubber_bands.append(rb)
 
-    def _apply_history_layer_style(self, layer):
-        """履歴から読み込んだレイヤーにスタイルを適用する（塗りつぶし20%）。"""
+    def _apply_export_layer_style(self, layer):
+        """エクスポートしたレイヤーに区別用のスタイルを適用する（塗りつぶし20%）。"""
         geom_type = layer.geometryType()
-        if geom_type == QgsWkbTypes.PolygonGeometry:
+        if geom_type == QgsWkbTypes.GeometryType.PolygonGeometry:
             symbol = QgsFillSymbol.createSimple({
                 'color': '0,120,255,51',       # 青・不透明度20%（51/255）
                 'outline_color': '0,80,180,200',
@@ -1350,8 +1420,8 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                 'outline_width_unit': 'Point',
             })
             layer.setRenderer(QgsSingleSymbolRenderer(symbol))
-        elif geom_type == QgsWkbTypes.LineGeometry:
-            pt = QgsUnitTypes.RenderPoints
+        elif geom_type == QgsWkbTypes.GeometryType.LineGeometry:
+            pt = QgsUnitTypes.RenderUnit.RenderPoints
             sl = QgsSimpleLineSymbolLayer(QColor(0, 120, 255, 200), 1.2)
             sl.setWidthUnit(pt)
             symbol = QgsLineSymbol()
@@ -1370,7 +1440,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
     def _apply_temp_layer_style(self, layer):
         """一時レイヤーにスタイルを適用する。"""
         geom_type = layer.geometryType()
-        if geom_type == QgsWkbTypes.PolygonGeometry:
+        if geom_type == QgsWkbTypes.GeometryType.PolygonGeometry:
             symbol = QgsFillSymbol.createSimple({
                 'color': '0,0,0,0',
                 'outline_color': '255,0,0,200',
@@ -1378,12 +1448,14 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                 'outline_width_unit': 'Point',
             })
             layer.setRenderer(QgsSingleSymbolRenderer(symbol))
-        elif geom_type == QgsWkbTypes.LineGeometry:
+        elif geom_type == QgsWkbTypes.GeometryType.LineGeometry:
             # 黒1.46pt を下層、黄色0.86pt を上層に重ねる
-            pt = QgsUnitTypes.RenderPoints
+            pt = QgsUnitTypes.RenderUnit.RenderPoints
             sl_black = QgsSimpleLineSymbolLayer(QColor(0, 0, 0, 255), 1.7)
             sl_black.setWidthUnit(pt)
-            sl_yellow = QgsSimpleLineSymbolLayer(QColor(255, 255, 13, 255), 1.5)
+            sl_yellow = QgsSimpleLineSymbolLayer(
+                QColor(255, 255, 13, 255), 1.5
+            )
             sl_yellow.setWidthUnit(pt)
             symbol = QgsLineSymbol()
             symbol.deleteSymbolLayer(0)
@@ -1411,7 +1483,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         for row in range(self.tableFeatures.rowCount()):
             item = self.tableFeatures.item(row, 0)
             if item:
-                fid = item.data(Qt.UserRole)
+                fid = item.data(Qt.ItemDataRole.UserRole)
                 if fid in selected_ids:
                     self.tableFeatures.selectRow(row)
         self._syncing_selection = False
@@ -1469,16 +1541,26 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
     # ──────────────────────────────────────────────
 
     def _get_display_cols(self):
-        return [c for c, v in self.column_config.items() if v == COLUMN_DISPLAY]
+        return [
+            c for c, v in self.column_config.items() if v == COLUMN_DISPLAY
+        ]
 
     def _get_edit_cols(self):
-        return [c for c, v in self.column_config.items() if v == COLUMN_EDITABLE]
+        return [
+            c for c, v in self.column_config.items() if v == COLUMN_EDITABLE
+        ]
 
     def _get_info_cols(self):
-        return [c for c, v in self.column_config.items() if v == COLUMN_INFO]
+        return [
+            c for c, v in self.column_config.items() if v == COLUMN_INFO
+        ]
 
     def _get_visible_cols(self):
-        return self._get_display_cols() + self._get_edit_cols() + self._get_info_cols()
+        return (
+            self._get_display_cols()
+            + self._get_edit_cols()
+            + self._get_info_cols()
+        )
 
     def _clear_table(self):
         self._editing = True
@@ -1520,26 +1602,30 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.tableFeatures.setRowCount(len(merged))
         _ut2 = time.perf_counter()
 
-        self.tableFeatures.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        self.tableFeatures.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Interactive
+        )
         for row_idx, row_data in enumerate(merged):
             fid = row_data['fid']
             edited_cols = row_data.get('_edited_cols', set())
 
             for col_idx, col_name in enumerate(visible_cols):
                 value = row_data.get(col_name, '')
-                item = QTableWidgetItem(str(value) if value is not None else '')
-                item.setData(Qt.UserRole, fid)
-                item.setData(Qt.UserRole + 1, col_name)
+                item = QTableWidgetItem(
+                    str(value) if value is not None else ''
+                )
+                item.setData(Qt.ItemDataRole.UserRole, fid)
+                item.setData(Qt.ItemDataRole.UserRole + 1, col_name)
 
                 if col_name in edit_cols:
-                    item.setFlags(item.flags() | Qt.ItemIsEditable)
+                    item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
                     # 色分け: 編集済み=赤、未編集=青
                     if col_name in edited_cols:
                         item.setForeground(COLOR_EDITED)
                     else:
                         item.setForeground(COLOR_EDITABLE)
                 else:
-                    item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                    item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                     # 表示のみ = 黒（デフォルト）
 
                 self.tableFeatures.setItem(row_idx, col_idx, item)
@@ -1547,7 +1633,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         _ut3 = time.perf_counter()
 
         self.tableFeatures.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeToContents
+            QHeaderView.ResizeMode.ResizeToContents
         )
         self.tableFeatures.horizontalHeader().setMinimumSectionSize(100)
         _ut4 = time.perf_counter()
@@ -1564,7 +1650,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             f'setItem={_ut3-_ut2:.3f}s '
             f'resize={_ut4-_ut3:.3f}s '
             f'total={_ut4-_ut0:.3f}s',
-            'GPKG Editor', Qgis.Info
+            'GPKG Editor', Qgis.MessageLevel.Info
         )
 
     # ──────────────────────────────────────────────
@@ -1579,8 +1665,8 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         if not item:
             return
 
-        fid = item.data(Qt.UserRole)
-        col_name = item.data(Qt.UserRole + 1)
+        fid = item.data(Qt.ItemDataRole.UserRole)
+        col_name = item.data(Qt.ItemDataRole.UserRole + 1)
         new_value = item.text()
 
         edit_cols = self._get_edit_cols()
@@ -1588,7 +1674,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             return
 
         try:
-            self.data_manager.save_edit(fid, col_name, new_value, edit_cols, self._active_plan_name)
+            self.data_manager.save_edit(
+                fid, col_name, new_value, edit_cols, self._active_plan_name
+            )
             # 編集済み → 赤字に変更
             item.setForeground(COLOR_EDITED)
             # merged data を更新してステータス表示に反映
@@ -1739,8 +1827,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                 plan_name, len(self._current_fids)
             )
         )
-        if self._history_mode:
-            self._refresh_history_panel()
         _t4 = time.perf_counter()
         from qgis.core import QgsMessageLog, Qgis
         QgsMessageLog.logMessage(
@@ -1748,9 +1834,8 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             f'activate={_t1-_t0:.3f}s '
             f'update_table={_t2-_t1:.3f}s '
             f'thumbnail={_t3-_t2:.3f}s '
-            f'history={_t4-_t3:.3f}s '
             f'total={_t4-_t0:.3f}s',
-            'GPKG Editor', Qgis.Info
+            'GPKG Editor', Qgis.MessageLevel.Info
         )
 
     def _on_plan_save(self):
@@ -1803,9 +1888,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self,
             self.tr('確認'),
             self.tr('計画「{}」を削除しますか？').format(name),
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if ret != QMessageBox.Yes:
+        if ret != QMessageBox.StandardButton.Yes:
             return
 
         self.data_manager.delete_plan(name)
@@ -1826,7 +1911,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._active_plan_name = name
         self.btnPlanAddFeature.setEnabled(True)
         self.btnPlanDeleteFeature.setEnabled(True)
-        self.btnHistory.setEnabled(True)
         self._create_temp_layer(name)
         self._zoom_to_plan_extent()
 
@@ -1834,7 +1918,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         """計画フィーチャーの範囲にキャンバスをズームする。"""
         if not self._current_fids or not self.data_manager.original_layer:
             return
-        layer = (self._temp_layer if self._temp_layer_valid() else None) or self.data_manager.original_layer
+        layer = (
+            (self._temp_layer if self._temp_layer_valid() else None)
+            or self.data_manager.original_layer
+        )
         request = QgsFeatureRequest().setFilterFids(self._current_fids)
         extent = QgsRectangle()
         for feat in layer.getFeatures(request):
@@ -1845,8 +1932,14 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         canvas = self.iface.mapCanvas()
         layer_crs = layer.crs()
         canvas_crs = canvas.mapSettings().destinationCrs()
-        if layer_crs.isValid() and canvas_crs.isValid() and layer_crs != canvas_crs:
-            transform = QgsCoordinateTransform(layer_crs, canvas_crs, QgsProject.instance())
+        if (
+            layer_crs.isValid()
+            and canvas_crs.isValid()
+            and layer_crs != canvas_crs
+        ):
+            transform = QgsCoordinateTransform(
+                layer_crs, canvas_crs, QgsProject.instance()
+            )
             try:
                 extent = transform.transformBoundingBox(extent)
             except Exception:  # nosec B110
@@ -1864,13 +1957,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.btnPlanAddFeature.setText(self.tr('フィーチャーの追加'))
         self.btnPlanAddFeature.setEnabled(False)
         self.btnPlanDeleteFeature.setEnabled(False)
-        # 履歴モードを閉じる
-        if self._history_mode:
-            self.btnHistory.blockSignals(True)
-            self.btnHistory.setChecked(False)
-            self.btnHistory.blockSignals(False)
-            self._on_history_toggled(False)
-        self.btnHistory.setEnabled(False)
         self._remove_temp_layer()
         if self.data_manager.original_layer:
             self.data_manager.original_layer.removeSelection()
@@ -1929,9 +2015,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self,
             self.tr('確認'),
             self.tr('{} 件のフィーチャーを追加します。よろしいですか？').format(len(added)),
-            QMessageBox.Ok | QMessageBox.Cancel,
+            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
         )
-        if ret != QMessageBox.Ok:
+        if ret != QMessageBox.StandardButton.Ok:
             self._feature_add_mode = False
             self.btnPlanAddFeature.setText(self.tr('フィーチャーの追加'))
             self.lblStatus.setText(self.tr('フィーチャーの追加をキャンセルしました'))
@@ -1982,7 +2068,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             return
 
         # テーブルで選択されている行からfidを取得
-        selected_indexes = self.tableFeatures.selectionModel().selectedIndexes()
+        selected_indexes = (
+            self.tableFeatures.selectionModel().selectedIndexes()
+        )
         if not selected_indexes:
             QMessageBox.warning(
                 self,
@@ -1995,7 +2083,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         for idx in selected_indexes:
             item = self.tableFeatures.item(idx.row(), 0)
             if item:
-                fid = item.data(Qt.UserRole)
+                fid = item.data(Qt.ItemDataRole.UserRole)
                 if fid is not None:
                     remove_fids.add(fid)
 
@@ -2009,9 +2097,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self.tr('選択された {} 件のフィーチャーを削除します。よろしいですか？').format(
                 len(remove_fids)
             ),
-            QMessageBox.Ok | QMessageBox.Cancel,
+            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
         )
-        if ret != QMessageBox.Ok:
+        if ret != QMessageBox.StandardButton.Ok:
             return
 
         self._current_fids = [
@@ -2063,14 +2151,18 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             )
 
     def _on_status_row1_config(self):
-        text, ok = self._edit_status_expr(self.tr('ステータス1行目'), self._status_expr1)
+        text, ok = self._edit_status_expr(
+            self.tr('ステータス1行目'), self._status_expr1
+        )
         if ok:
             self._status_expr1 = text
             self._update_status_display()
             self._auto_save_plan_status()
 
     def _on_status_row2_config(self):
-        text, ok = self._edit_status_expr(self.tr('ステータス2行目'), self._status_expr2)
+        text, ok = self._edit_status_expr(
+            self.tr('ステータス2行目'), self._status_expr2
+        )
         if ok:
             self._status_expr2 = text
             self._update_status_display()
@@ -2113,7 +2205,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         btn_layout = QHBoxLayout()
         for label, snippet in self._INSERT_SNIPPETS:
             btn = QPushButton(label, dlg)
-            btn.setFocusPolicy(Qt.NoFocus)
+            btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             btn.clicked.connect(
                 lambda _, s=snippet: edit.insertPlainText(s)
             )
@@ -2121,7 +2213,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         layout.addLayout(btn_layout)
 
         buttons = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel, parent=dlg
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel,
+            parent=dlg,
         )
         buttons.accepted.connect(dlg.accept)
         buttons.rejected.connect(dlg.reject)
@@ -2135,7 +2229,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         target_width = 560
         dlg.resize(min(target_width, max_width), dlg.sizeHint().height())
 
-        if dlg.exec_() == QDialog.Accepted:
+        if dlg.exec() == QDialog.DialogCode.Accepted:
             return edit.toPlainText(), True
         return current_text, False
 
@@ -2194,21 +2288,14 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         folder = self._get_export_folder()
         num = self._next_export_number(folder, plan_name)
         ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = self._sanitize_filename(plan_name) + '_' + num + '_' + ts + '.gpkg'
+        filename = (
+            self._sanitize_filename(plan_name) + '_' + num + '_' + ts + '.gpkg'
+        )
         path = os.path.join(folder, filename)
 
         try:
             self.data_manager.export_gpkg(path, plan_name, fids=fids)
-            feature_count = len(fids) if fids is not None else self.data_manager.original_layer.featureCount()
-            edited_col_count = self._count_editable_columns()
-            try:
-                author = os.getlogin()
-            except Exception:
-                author = ''
-            self.data_manager.save_export_history(
-                plan_name, filename, 'gpkg', feature_count, edited_col_count, author)
-            if self._history_mode:
-                self._refresh_history_panel()
+            self._add_exported_layer(path, plan_name, ts)
             QMessageBox.information(
                 self,
                 self.tr('完了'),
@@ -2220,6 +2307,27 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                 self.tr('エラー'),
                 self.tr('GPKG出力に失敗しました: {}').format(e),
             )
+
+    def _add_exported_layer(self, path, plan_name, ts):
+        """エクスポートしたGPKGを比較用レイヤーとして、設定GPKGレイヤーの直下に追加する。"""
+        layer_name = f'{plan_name}_{ts}'
+        layer = QgsVectorLayer(path, layer_name, 'ogr')
+        if not layer.isValid():
+            return
+        self._apply_export_layer_style(layer)
+        QgsProject.instance().addMapLayer(layer, False)
+
+        root = QgsProject.instance().layerTreeRoot()
+        source_layer_id = self.cmbGpkgLayer.currentData()
+        source_node = (
+            root.findLayer(source_layer_id) if source_layer_id else None
+        )
+        if source_node and source_node.parent():
+            parent = source_node.parent()
+            idx = parent.children().index(source_node)
+            parent.insertLayer(idx + 1, layer)
+        else:
+            root.insertLayer(0, layer)
 
     def _overwrite_gpkg(self):
         """編集内容をQGIS標準編集APIでGPKGに直接書き込む（FID・未編集属性を保持）。"""
@@ -2246,9 +2354,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                 '元のGPKGファイルに編集を書き込みます:\n{}\n\n'
                 'この操作は取り消せません。よろしいですか？'
             ).format(path),
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if ret != QMessageBox.Yes:
+        if ret != QMessageBox.StandardButton.Yes:
             return
 
         try:
@@ -2299,21 +2407,13 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         folder = self._get_export_folder()
         num = self._next_export_number(folder, plan_name)
         ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = self._sanitize_filename(plan_name) + '_' + num + '_' + ts + '.csv'
+        filename = (
+            self._sanitize_filename(plan_name) + '_' + num + '_' + ts + '.csv'
+        )
         path = os.path.join(folder, filename)
 
         try:
             self.data_manager.export_csv(path, plan_name, fids=fids)
-            feature_count = len(fids) if fids is not None else self.data_manager.original_layer.featureCount()
-            edited_col_count = self._count_editable_columns()
-            try:
-                author = os.getlogin()
-            except Exception:
-                author = ''
-            self.data_manager.save_export_history(
-                plan_name, filename, 'csv', feature_count, edited_col_count, author)
-            if self._history_mode:
-                self._refresh_history_panel()
             QMessageBox.information(
                 self,
                 self.tr('完了'),
@@ -2329,30 +2429,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
     # ──────────────────────────────────────────────
     # エクスポートユーティリティ
     # ──────────────────────────────────────────────
-
-    def _count_editable_columns(self):
-        """現在の column_config で編集モードのカラム数を返す。"""
-        return sum(1 for v in self.column_config.values() if v == COLUMN_EDITABLE)
-
-    def _migrate_loaded_layer_sources(self, renamed, export_folder):
-        """QGISにロード済みのレイヤーのソースパスを旧→新ファイル名に更新する。"""
-        for layer in QgsProject.instance().mapLayers().values():
-            src = layer.source()
-            for old_name, new_name in renamed.items():
-                # QGISのソースURIは常に '/' 区切りのためスラッシュに統一して比較
-                old_path = os.path.join(export_folder, old_name).replace('\\', '/')
-                if old_path not in src:
-                    continue
-                new_path = os.path.join(export_folder, new_name).replace('\\', '/')
-                new_src = src.replace(old_path, new_path)
-                new_stem = os.path.splitext(new_name)[0]
-                m = re.search(r'(\d{4}_\d{8}_\d{6})$', new_stem)
-                new_layer_name = m.group(1) if m else new_stem
-                try:
-                    layer.setDataSource(new_src, new_layer_name, layer.providerType())
-                except Exception:  # nosec B110
-                    pass
-                break
 
     def _get_export_folder(self):
         """出力フォルダ (GPKG_Editor_exports) のパスを返す。なければ作成する。"""
@@ -2386,330 +2462,3 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
     def _sanitize_filename(name):
         """ファイル名に使えない文字を除去する。"""
         return re.sub(r'[\\/:*?"<>|]', '_', name)
-
-    # ──────────────────────────────────────────────
-    # 履歴パネル
-    # ──────────────────────────────────────────────
-
-    def _build_history_panel(self):
-        """エクスポート履歴パネルを構築して rightPanel の tableFeatures 直後に挿入する。"""
-        panel = QWidget()
-        vlay = QVBoxLayout(panel)
-        vlay.setContentsMargins(0, 0, 0, 0)
-        vlay.setSpacing(4)
-
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll.setFrameShape(QFrame.NoFrame)
-
-        contents = QWidget()
-        self._history_scroll_layout = QVBoxLayout(contents)
-        self._history_scroll_layout.setContentsMargins(0, 0, 0, 0)
-        self._history_scroll_layout.setSpacing(2)
-        self._history_scroll_layout.addStretch()
-        scroll.setWidget(contents)
-        vlay.addWidget(scroll)
-
-        rlay = self.rightPanel.layout()
-        for i in range(rlay.count()):
-            item = rlay.itemAt(i)
-            if item and item.widget() == self.tableFeatures:
-                rlay.insertWidget(i + 1, panel)
-                break
-
-        panel.setVisible(False)
-        self._history_panel = panel
-
-    def _on_history_toggled(self, checked):
-        """履歴ボタントグル: 履歴パネルとテーブルを切り替える。"""
-        self._history_mode = checked
-        if checked:
-            self.btnHistory.setStyleSheet(
-                'QPushButton { background-color: #4a90d9; color: white; }'
-            )
-            self.tableFeatures.setVisible(False)
-            self._history_panel.setVisible(True)
-            self._refresh_history_panel()
-        else:
-            self.btnHistory.setStyleSheet('')
-            self._history_panel.setVisible(False)
-            self.tableFeatures.setVisible(True)
-
-    def _refresh_history_panel(self):
-        """エクスポート履歴パネルを再構築する（新しい順）。"""
-        lay = self._history_scroll_layout
-        while lay.count() > 1:
-            item = lay.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-
-        records = []
-        if self._active_plan_name:
-            records = self.data_manager.list_export_history(self._active_plan_name)
-
-        if not records:
-            lbl = QLabel(self.tr('エクスポート履歴はありません'))
-            lbl.setStyleSheet('color: #999999; font-size: 11px;')
-            lbl.setAlignment(Qt.AlignCenter)
-            lay.insertWidget(0, lbl)
-            return
-
-        folder = self._get_export_folder()
-        for rec in records:
-            if rec['is_deleted']:
-                widget = self._build_export_history_deleted_row(rec)
-            elif not os.path.exists(os.path.join(folder, rec['filename'])):
-                widget = self._build_export_history_missing_row(rec)
-            else:
-                widget = self._build_export_history_row(rec)
-            lay.insertWidget(lay.count() - 1, widget)
-
-    def _build_export_history_missing_row(self, rec):
-        """ファイルがディレクトリから削除された場合の1行メッセージ行を返す。"""
-        frame = QFrame()
-        frame.setFrameShape(QFrame.StyledPanel)
-        frame.setStyleSheet(
-            'QFrame { border: 1px solid #dddddd; border-radius: 3px; background: #fff8e1; }'
-        )
-        lay = QHBoxLayout(frame)
-        lay.setContentsMargins(6, 4, 6, 4)
-        msg = self.tr('{}はディレクトリから削除されました。').format(rec['filename'])
-        lbl = QLabel(msg)
-        lbl.setStyleSheet('font-size: 11px; color: #b8860b;')
-        lay.addWidget(lbl)
-        return frame
-
-    def _build_export_history_deleted_row(self, rec):
-        """削除済みレコードの1行メッセージ行を返す。"""
-        frame = QFrame()
-        frame.setFrameShape(QFrame.StyledPanel)
-        frame.setStyleSheet(
-            'QFrame { border: 1px solid #dddddd; border-radius: 3px; background: #f8f8f8; }'
-        )
-        lay = QHBoxLayout(frame)
-        lay.setContentsMargins(6, 4, 6, 4)
-        msg = self.tr('{}は削除されました。').format(rec['filename'])
-        lbl = QLabel(msg)
-        lbl.setStyleSheet('font-size: 11px; color: #999999;')
-        lay.addWidget(lbl)
-        return frame
-
-    def _build_export_history_row(self, rec):
-        """エクスポート履歴1行のウィジェットを返す。"""
-        frame = QFrame()
-        frame.setFrameShape(QFrame.StyledPanel)
-        frame.setStyleSheet('QFrame { border: 1px solid #cccccc; border-radius: 3px; }')
-
-        grid = QGridLayout(frame)
-        grid.setContentsMargins(4, 3, 4, 3)
-        grid.setSpacing(3)
-        grid.setColumnStretch(1, 1)
-
-        is_gpkg = rec['file_type'] == 'gpkg'
-        info = (f"{rec['filename']}  |  {rec['exported_at']}  |  "
-                f"{rec['feature_count']}{self.tr('件')}  |  "
-                f"{rec['edited_col_count']}{self.tr('編集列')}")
-        lbl_info = QLabel(info)
-        lbl_info.setStyleSheet('font-size: 11px;')
-        lbl_info.setWordWrap(False)
-        lbl_info.setFixedHeight(18)
-
-        btn_action = QPushButton(self.tr('読込') if is_gpkg else self.tr('表示'))
-        btn_action.setFixedHeight(22)
-        btn_action.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        btn_delete = QPushButton(self.tr('削除'))
-        btn_delete.setFixedHeight(22)
-        btn_delete.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-
-        edit_author = QLineEdit(rec['author'])
-        edit_author.setPlaceholderText(self.tr('計画者'))
-        edit_author.setFixedHeight(22)
-        edit_memo = QLineEdit(rec['memo'])
-        edit_memo.setPlaceholderText(self.tr('メモ'))
-        edit_memo.setFixedHeight(22)
-
-        btn_col = QVBoxLayout()
-        btn_col.setSpacing(2)
-        btn_col.addWidget(btn_action)
-        btn_col.addWidget(btn_delete)
-        btn_widget = QWidget()
-        btn_widget.setLayout(btn_col)
-        btn_widget.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
-
-        author_memo = QHBoxLayout()
-        author_memo.setSpacing(4)
-        author_memo.addWidget(edit_author)
-        author_memo.addWidget(edit_memo)
-
-        right_col = QVBoxLayout()
-        right_col.setSpacing(2)
-        right_col.addWidget(lbl_info)
-        right_col.addLayout(author_memo)
-        right_widget = QWidget()
-        right_widget.setLayout(right_col)
-
-        grid.addWidget(btn_widget,   0, 0, 2, 1)
-        grid.addWidget(right_widget, 0, 1, 2, 1)
-
-        rec_id = rec['id']
-        rec_filename = rec['filename']
-        frame._filename = rec_filename
-
-        if is_gpkg:
-            btn_action.clicked.connect(
-                lambda _, rid=rec_id, fn=rec_filename, f=frame:
-                    self._on_export_history_load(rid, fn, f))
-        else:
-            btn_action.clicked.connect(
-                lambda _, fn=rec_filename, f=frame:
-                    self._on_export_history_show(fn, f))
-
-        btn_delete.clicked.connect(
-            lambda _, rid=rec_id, f=frame: self._on_export_history_delete(rid, f))
-
-        edit_author.editingFinished.connect(
-            lambda rid=rec_id, w=edit_author: self.data_manager.update_export_history_field(
-                rid, 'author', w.text()))
-        edit_memo.editingFinished.connect(
-            lambda rid=rec_id, w=edit_memo: self.data_manager.update_export_history_field(
-                rid, 'memo', w.text()))
-
-        return frame
-
-    @staticmethod
-    def _grayout_row(frame):
-        """履歴行をグレーアウトして操作不可にする。"""
-        frame.setStyleSheet(
-            'QFrame { border: 1px solid #dddddd; border-radius: 3px; background: #f0f0f0; }'
-        )
-        frame.setEnabled(False)
-
-    def _on_export_history_load(self, record_id, filename, frame):
-        """GPKG エクスポート履歴を QGIS レイヤーとして読み込む（計画レイヤー直下）。"""
-        folder = self._get_export_folder()
-        path = os.path.join(folder, filename)
-        if not os.path.exists(path):
-            QMessageBox.warning(self, self.tr('エラー'),
-                                self.tr('ファイルが見つかりません:\n{}').format(path))
-            self._grayout_row(frame)
-            return
-
-        stem = os.path.splitext(filename)[0]
-        m = re.search(r'(\d{4}_\d{8}_\d{6})$', stem)
-        layer_name = m.group(1) if m else stem
-        layer = QgsVectorLayer(path, layer_name, 'ogr')
-        if not layer.isValid():
-            QMessageBox.warning(self, self.tr('エラー'),
-                                self.tr('レイヤーの読み込みに失敗しました:\n{}').format(path))
-            self._grayout_row(frame)
-            return
-        self._apply_history_layer_style(layer)
-
-        QgsProject.instance().addMapLayer(layer, False)
-
-        # 計画レイヤーの直上に "[計画名] Group" グループを作り、その中に挿入
-        group_name = '{} Group'.format(self._active_plan_name or layer_name)
-        root = QgsProject.instance().layerTreeRoot()
-        ref_node = None
-        if self._temp_layer_valid():
-            ref_node = root.findLayer(self._temp_layer.id())
-
-        if ref_node and ref_node.parent():
-            parent = ref_node.parent()
-            idx = parent.children().index(ref_node)
-            # 同名グループが既にあれば再利用、なければ計画レイヤーの直上に新規作成
-            group = None
-            for child in parent.children():
-                if isinstance(child, QgsLayerTreeGroup) and child.name() == group_name:
-                    group = child
-                    break
-            if group is None:
-                group = parent.insertGroup(idx, group_name)
-        else:
-            # 計画レイヤーが見つからない場合はルート先頭にグループを作成
-            group = None
-            for child in root.children():
-                if isinstance(child, QgsLayerTreeGroup) and child.name() == group_name:
-                    group = child
-                    break
-            if group is None:
-                group = root.insertGroup(0, group_name)
-
-        group.addLayer(layer)
-
-    def _on_export_history_show(self, filename, frame):
-        """CSV エクスポート履歴をファイルマネージャーで表示する。"""
-        folder = self._get_export_folder()
-        path = os.path.join(folder, filename)
-        if not os.path.exists(path):
-            QMessageBox.warning(self, self.tr('エラー'),
-                                self.tr('ファイルが見つかりません:\n{}').format(path))
-            self._grayout_row(frame)
-            return
-        QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path)))
-
-    def _on_export_history_delete(self, record_id, frame):
-        """エクスポート履歴レコードを削除する（確認あり）。ファイル実体も削除しソフトデリート。"""
-        filename = getattr(frame, '_filename', '')
-        folder = self._get_export_folder()
-        path = os.path.join(folder, filename)
-
-        # プロジェクト内でこのファイルを使用中のレイヤーを検索
-        using_layers = [
-            layer for layer in QgsProject.instance().mapLayers().values()
-            if os.path.normpath(layer.source().split('|')[0]) == os.path.normpath(path)
-        ]
-
-        if using_layers:
-            msg = self.tr(
-                'このファイルはレイヤーで使用中です。\n'
-                '削除するとレイヤーも除去されます。\n\n'
-                '削除しますか？'
-            )
-        else:
-            msg = self.tr('この履歴レコードを削除しますか？')
-
-        ret = QMessageBox.question(
-            self,
-            self.tr('削除の確認'),
-            msg,
-            QMessageBox.Yes | QMessageBox.No,
-        )
-        if ret != QMessageBox.Yes:
-            return
-
-        # 使用中レイヤーをプロジェクトから除去
-        for layer in using_layers:
-            QgsProject.instance().removeMapLayer(layer.id())
-
-        # ファイル実体を削除
-        if os.path.exists(path):
-            try:
-                os.remove(path)
-            except Exception:  # nosec B110
-                pass
-
-        # DB をソフトデリート
-        self.data_manager.delete_export_history(record_id)
-
-        # 行の中身を「削除されました」1行メッセージに差し替え
-        old_layout = frame.layout()
-        while old_layout.count():
-            item = old_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-            elif item.layout():
-                sub = item.layout()
-                while sub.count():
-                    si = sub.takeAt(0)
-                    if si.widget():
-                        si.widget().deleteLater()
-
-        msg = self.tr('{}は削除されました。').format(filename)
-        lbl = QLabel(msg)
-        lbl.setStyleSheet('font-size: 11px; color: #999999; padding: 4px;')
-        old_layout.addWidget(lbl)
-        frame.setStyleSheet(
-            'QFrame { border: 1px solid #dddddd; border-radius: 3px; background: #f8f8f8; }'
-        )

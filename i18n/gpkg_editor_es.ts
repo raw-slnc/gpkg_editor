@@ -28,42 +28,42 @@
         <translation>&gt;</translation>
     </message>
     <message>
-        <location filename="../column_config_dialog.py" line="81" />
+        <location filename="../column_config_dialog.py" line="96" />
         <source>非表示</source>
         <translation>Oculto</translation>
     </message>
     <message>
-        <location filename="../column_config_dialog.py" line="82" />
+        <location filename="../column_config_dialog.py" line="97" />
         <source>表示</source>
         <translation>Mostrar</translation>
     </message>
     <message>
-        <location filename="../column_config_dialog.py" line="83" />
+        <location filename="../column_config_dialog.py" line="98" />
         <source>編集</source>
         <translation>Editar</translation>
     </message>
     <message>
-        <location filename="../column_config_dialog.py" line="84" />
+        <location filename="../column_config_dialog.py" line="99" />
         <source>情報</source>
         <translation>Información</translation>
     </message>
     <message>
-        <location filename="../column_config_dialog.py" line="90" />
+        <location filename="../column_config_dialog.py" line="105" />
         <source>表示のみ</source>
         <translation>Solo visualización</translation>
     </message>
     <message>
-        <location filename="../column_config_dialog.py" line="91" />
+        <location filename="../column_config_dialog.py" line="106" />
         <source>表示編集のみ</source>
         <translation>Solo visualizar/editar</translation>
     </message>
     <message>
-        <location filename="../column_config_dialog.py" line="92" />
+        <location filename="../column_config_dialog.py" line="107" />
         <source>情報のみ</source>
         <translation>Solo información</translation>
     </message>
     <message>
-        <location filename="../column_config_dialog.py" line="93" />
+        <location filename="../column_config_dialog.py" line="108" />
         <source>選択無し</source>
         <translation>Sin selección</translation>
     </message>
@@ -71,7 +71,7 @@
 <context>
     <name>GpkgEditor</name>
     <message>
-        <location filename="../gpkg_editor.py" line="130" />
+        <location filename="../gpkg_editor.py" line="183" />
         <source>GPKG Editor</source>
         <translation>GPKG Editor</translation>
     </message>
@@ -79,219 +79,219 @@
 <context>
     <name>GpkgEditorWindow</name>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="358" />
+        <location filename="../gpkg_editor_dockwidget.py" line="748" />
         <source>▼ ショートカット</source>
         <translation>▼ Atajos</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="358" />
+        <location filename="../gpkg_editor_dockwidget.py" line="748" />
         <source>▶ ショートカット</source>
         <translation>▶ Atajos</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="389" />
+        <location filename="../gpkg_editor_dockwidget.py" line="590" />
         <source>▼ マップサムネイル</source>
         <translation>▼ Miniatura del mapa</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="389" />
+        <location filename="../gpkg_editor_dockwidget.py" line="590" />
         <source>▶ マップサムネイル</source>
         <translation>▶ Miniatura del mapa</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="376" />
+        <location filename="../gpkg_editor_dockwidget.py" line="776" />
         <source>-- 選択してください --</source>
         <translation>-- Seleccione --</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="959" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1796" />
         <source>GPKGレイヤーを選択してください</source>
         <translation>Seleccione una capa GPKG</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1491" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2423" />
         <source>エラー</source>
         <translation>Error</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="431" />
+        <location filename="../gpkg_editor_dockwidget.py" line="851" />
         <source>読込完了: {}</source>
         <translation>Carga completada: {}</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="473" />
+        <location filename="../gpkg_editor_dockwidget.py" line="905" />
         <source>ロック中</source>
         <translation>Bloqueado</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="475" />
+        <location filename="../gpkg_editor_dockwidget.py" line="907" />
         <source>ロック</source>
         <translation>Bloquear</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="776" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1506" />
         <source>地物が選択されていません</source>
         <translation>No hay entidades seleccionadas</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="799" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1529" />
         <source>交差するフィーチャーがありません</source>
         <translation>No hay entidades que intersecten</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="804" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1535" />
         <source>{} 件のフィーチャーが見つかりました</source>
         <translation>Se encontraron {} entidades</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="844" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1849" />
         <source>表示カラムが設定されていません。カラム設定を行ってください。</source>
         <translation>No hay columnas visibles configuradas. Configure las columnas.</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="993" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1855" />
         <source>保存エラー</source>
         <translation>Error al guardar</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="922" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1689" />
         <source>編集の保存に失敗しました: {}</source>
         <translation>No se pudieron guardar las ediciones: {}</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="943" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1710" />
         <source>フィーチャー数: -</source>
         <translation>Número de entidades: -</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="948" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1769" />
         <source>-- 計画を選択 --</source>
         <translation>-- Seleccionar plan --</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="979" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1825" />
         <source>計画「{}」を読み込みました ({} 件)</source>
         <translation>Plan "{}" cargado ({} elementos)</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="445" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1797" />
         <source>計画作成を開始する</source>
         <translation>Comenzar a crear un plan</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="988" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1844" />
         <source>計画名を入力してください。</source>
         <translation>Ingrese el nombre del plan.</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="993" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1855" />
         <source>テーブルにデータがありません。
 地物を選択してから保存してください。</source>
         <translation>No hay datos en la tabla.
 Seleccione entidades antes de guardar.</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1014" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1877" />
         <source>計画「{}」を保存しました</source>
         <translation>Plan "{}" guardado</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1172" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2075" />
         <source>削除エラー</source>
         <translation>Error al eliminar</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1019" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1882" />
         <source>削除する計画を選択してください。</source>
         <translation>Seleccione un plan para eliminar.</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1191" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2094" />
         <source>確認</source>
         <translation>Confirmación</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1024" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1887" />
         <source>計画「{}」を削除しますか？</source>
         <translation>¿Eliminar el plan "{}"?</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1038" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1901" />
         <source>計画「{}」を削除しました</source>
         <translation>Plan "{}" eliminado</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1041" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1904" />
         <source>フィーチャー数: {}</source>
         <translation>Número de entidades: {}</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1139" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2040" />
         <source>フィーチャーの追加</source>
         <translation>Agregar entidades</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1073" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1973" />
         <source>メインウィンドウでフィーチャーを選択してください（複数選択可）</source>
         <translation>Seleccione entidades en la ventana principal (se permite selección múltiple)</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1123" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2023" />
         <source>フィーチャーの追加をキャンセルしました</source>
         <translation>Se canceló la adición de entidades</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1096" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1996" />
         <source>追加</source>
         <translation>Agregar</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1096" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1996" />
         <source>追加対象のフィーチャーがありません。</source>
         <translation>No hay entidades para agregar.</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1108" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2008" />
         <source>選択されたフィーチャーはすべて計画に含まれています</source>
         <translation>Todas las entidades seleccionadas ya están incluidas en el plan</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1114" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2014" />
         <source>{} 件のフィーチャーを追加します。よろしいですか？</source>
         <translation>Se agregarán {} entidades. ¿Continuar?</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1140" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2041" />
         <source>{} 件のフィーチャーを追加しました (計 {} 件)</source>
         <translation>Se agregaron {} entidades (total: {})</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1160" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2061" />
         <source>選択を確定する</source>
         <translation>Confirmar selección</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1162" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2063" />
         <source>キャンセル</source>
         <translation>Cancelar</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1172" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2075" />
         <source>テーブルから削除するフィーチャーを選択してください。</source>
         <translation>Seleccione en la tabla las entidades a eliminar.</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1191" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2094" />
         <source>選択された {} 件のフィーチャーを削除します。よろしいですか？</source>
         <translation>Se eliminarán {} entidades seleccionadas. ¿Continuar?</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1214" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2118" />
         <source>{} 件のフィーチャーを削除しました (計 {} 件)</source>
         <translation>Se eliminaron {} entidades (total: {})</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1225" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2129" />
         <source>QGIS式風の書式（選択行の値を表示）
 
 "カラム名"  選択行のカラム値
@@ -318,71 +318,54 @@ Funciones de agregación (todas las filas):
 Ej.: "Nombre" || ' - ' || "Tipo" || ' (' || count() || ' elementos)'</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1250" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2154" />
         <source>ステータス1行目</source>
         <translation>Estado línea 1</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1257" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2163" />
         <source>ステータス2行目</source>
         <translation>Estado línea 2</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1352" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2262" />
         <source>出力エラー</source>
         <translation>Error de exportación</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1352" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2262" />
         <source>テーブルにデータがありません。
 地物を選択または計画を読み込んでから出力してください。</source>
         <translation>No hay datos en la tabla.
 Seleccione entidades o cargue un plan antes de exportar.</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1377" />
-        <source>GPKG出力先を選択</source>
-        <translation>Seleccione destino de exportación GPKG</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1377" />
-        <source>GeoPackage Files (*.gpkg);;All Files (*)</source>
-        <translation>GeoPackage Files (*.gpkg);;All Files (*)</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1485" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2417" />
         <source>完了</source>
         <translation>Completado</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1388" />
-        <source>GPKGファイルを出力しました:
-{}</source>
-        <translation>Archivo GPKG exportado:
-{}</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1394" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2305" />
         <source>GPKG出力に失敗しました: {}</source>
         <translation>Falló la exportación GPKG: {}</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1413" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2345" />
         <source>情報</source>
         <translation>Información</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1413" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2345" />
         <source>保存する編集がありません。</source>
         <translation>No hay ediciones para guardar.</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1418" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2350" />
         <source>上書き確認</source>
         <translation>Confirmación de sobrescritura</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1418" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2350" />
         <source>元のGPKGファイルに編集を書き込みます:
 {}
 
@@ -393,288 +376,211 @@ Seleccione entidades o cargue un plan antes de exportar.</translation>
 Esta acción no se puede deshacer. ¿Continuar?</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1455" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2387" />
         <source>上書き保存が完了しました</source>
         <translation>Sobrescritura completada</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1456" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2388" />
         <source>GPKGファイルに編集を書き込みました:
 {}</source>
         <translation>Ediciones escritas en el archivo GPKG:
 {}</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1463" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2395" />
         <source>上書き保存に失敗しました: {}</source>
         <translation>Falló la sobrescritura: {}</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1474" />
-        <source>CSV出力先を選択</source>
-        <translation>Seleccione destino de exportación CSV</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1474" />
-        <source>CSV Files (*.csv);;All Files (*)</source>
-        <translation>CSV Files (*.csv);;All Files (*)</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1485" />
-        <source>CSVファイルを出力しました:
-{}</source>
-        <translation>Archivo CSV exportado:
-{}</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1491" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2423" />
         <source>CSV出力に失敗しました: {}</source>
         <translation>Falló la exportación CSV: {}</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="185" />
+        <location filename="../gpkg_editor_dockwidget.py" line="290" />
         <source>レイヤー</source>
         <translation>Capa</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="186" />
+        <location filename="../gpkg_editor_dockwidget.py" line="291" />
         <source>GPKGレイヤー:</source>
         <translation>Capa GPKG:</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="187" />
+        <location filename="../gpkg_editor_dockwidget.py" line="292" />
         <source>プロジェクト内のGPKGレイヤーを選択</source>
         <translation>Seleccione una capa GPKG del proyecto</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="190" />
+        <location filename="../gpkg_editor_dockwidget.py" line="298" />
         <source>計画</source>
         <translation>Plan</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="191" />
+        <location filename="../gpkg_editor_dockwidget.py" line="299" />
         <source>計画:</source>
         <translation>Plan:</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="192" />
+        <location filename="../gpkg_editor_dockwidget.py" line="300" />
         <source>計画名:</source>
         <translation>Nombre del plan:</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="193" />
+        <location filename="../gpkg_editor_dockwidget.py" line="301" />
         <source>計画名を入力...</source>
         <translation>Ingrese nombre del plan...</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="198" />
+        <location filename="../gpkg_editor_dockwidget.py" line="1820" />
         <source>登録フィーチャーの確定</source>
-        <translation>Confirmar plan</translation>
+        <translation>Confirmar entidades registradas</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="199" />
+        <location filename="../gpkg_editor_dockwidget.py" line="310" />
         <source>削除</source>
         <translation>Eliminar</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="202" />
+        <location filename="../gpkg_editor_dockwidget.py" line="313" />
         <source>フィーチャーの削除</source>
         <translation>Eliminar entidades</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="203" />
+        <location filename="../gpkg_editor_dockwidget.py" line="314" />
         <source>操作</source>
         <translation>Operaciones</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="204" />
+        <location filename="../gpkg_editor_dockwidget.py" line="315" />
         <source>カラム設定</source>
         <translation>Configuración de columnas</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="205" />
+        <location filename="../gpkg_editor_dockwidget.py" line="316" />
         <source>GPKG出力</source>
         <translation>Exportar GPKG</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="206" />
+        <location filename="../gpkg_editor_dockwidget.py" line="317" />
         <source>CSV出力</source>
         <translation>Exportar CSV</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="208" />
+        <location filename="../gpkg_editor_dockwidget.py" line="322" />
         <source>GPKGレイヤーに上書き保存する</source>
         <translation>Sobrescribir en capa GPKG</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="209" />
+        <location filename="../gpkg_editor_dockwidget.py" line="323" />
         <source>計画範囲のみ出力</source>
         <translation>Exportar solo alcance del plan</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="210" />
+        <location filename="../gpkg_editor_dockwidget.py" line="324" />
         <source>ステータス表示設定</source>
         <translation>Configuración de visualización de estado</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="211" />
+        <location filename="../gpkg_editor_dockwidget.py" line="325" />
         <source>1行目</source>
         <translation>Línea 1</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="212" />
+        <location filename="../gpkg_editor_dockwidget.py" line="326" />
         <source>2行目</source>
         <translation>Línea 2</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="217" />
+        <location filename="../gpkg_editor_dockwidget.py" line="335" />
         <source>セルをコピー（タブ区切り）</source>
         <translation>Copiar celdas (separadas por tabulaciones)</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="218" />
+        <location filename="../gpkg_editor_dockwidget.py" line="336" />
         <source>クリップボードから貼り付け</source>
         <translation>Pegar desde el portapapeles</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="219" />
+        <location filename="../gpkg_editor_dockwidget.py" line="337" />
         <source>横スクロール</source>
         <translation>Desplazamiento horizontal</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="220" />
+        <location filename="../gpkg_editor_dockwidget.py" line="338" />
         <source>末端セルへ移動</source>
         <translation>Ir a la celda final</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="221" />
+        <location filename="../gpkg_editor_dockwidget.py" line="339" />
         <source>末端セルまで選択</source>
         <translation>Seleccionar hasta la celda final</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="222" />
+        <location filename="../gpkg_editor_dockwidget.py" line="340" />
         <source>セル編集モード切替</source>
         <translation>Alternar modo de edición de celda</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="225" />
+        <location filename="../gpkg_editor_dockwidget.py" line="343" />
         <source>ステータス</source>
         <translation>Estado</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="226" />
+        <location filename="../gpkg_editor_dockwidget.py" line="344" />
         <source>パネルを閉じる</source>
         <translation>Cerrar panel</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="227" />
-        <source>フィーチャー全件を描画</source>
-        <translation>Dibujar todas las entidades</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="228" />
+        <location filename="../gpkg_editor_dockwidget.py" line="345" />
         <source>全画面表示</source>
         <translation>Pantalla completa</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="229" />
+        <location filename="../gpkg_editor_dockwidget.py" line="347" />
         <source>■ 表示のみ</source>
         <translation>■ Solo visualización</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="230" />
+        <location filename="../gpkg_editor_dockwidget.py" line="348" />
         <source>■ 編集可能</source>
         <translation>■ Editable</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="231" />
+        <location filename="../gpkg_editor_dockwidget.py" line="349" />
         <source>■ 編集済み</source>
         <translation>■ Editado</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="232" />
+        <location filename="../gpkg_editor_dockwidget.py" line="350" />
         <source>■ 情報（後列）</source>
-        <translation>■ Información (columna posterior)</translation>
+        <translation>■ Información (fila trasera)</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="67" />
+        <location filename="../gpkg_editor_dockwidget.py" line="586" />
         <source>不要</source>
-        <translation>No es necesario.</translation>
+        <translation>No necesario</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="0" />
-        <source>履歴</source>
-        <translation>Historial</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="0" />
-        <source>件</source>
-        <translation> elementos</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="0" />
-        <source>編集列</source>
-        <translation> cols. edic.</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="0" />
-        <source>エクスポート履歴はありません</source>
-        <translation>Sin historial de exportación</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="0" />
-        <source>{}はディレクトリから削除されました。</source>
-        <translation>{} fue eliminado del directorio.</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="0" />
-        <source>{}は削除されました。</source>
-        <translation>{} ha sido eliminado.</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="0" />
-        <source>読込</source>
-        <translation>Cargar</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="0" />
-        <source>表示</source>
-        <translation>Mostrar</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="0" />
-        <source>計画者</source>
-        <translation>Autor</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="0" />
-        <source>メモ</source>
-        <translation>Nota</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="0" />
-        <source>削除の確認</source>
-        <translation>Confirmar eliminación</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="0" />
-        <source>この履歴レコードを削除しますか？</source>
-        <translation>¿Eliminar este registro del historial?</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="0" />
-        <source>このファイルはレイヤーで使用中です。\n削除するとレイヤーも除去されます。\n\n削除しますか？</source>
-        <translation>Este archivo está siendo usado por una capa.\nAl eliminarlo también se quitará la capa.\n\n¿Eliminar?</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="0" />
-        <source>レイヤーの読み込みに失敗しました:\n{}</source>
-        <translation>Error al cargar la capa:\n{}</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="0" />
+        <location filename="../gpkg_editor_dockwidget.py" line="2417" />
         <source>{} に保存されました</source>
         <translation>Guardado en {}</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="346" />
+        <source>別ウィンドウ表示</source>
+        <translation>Ventana separada</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="1716" />
+        <source>コピー元の計画を選択してください（Escでキャンセル）</source>
+        <translation>Seleccione el plan de origen para copiar (Esc para cancelar)</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="1775" />
+        <source>-- 計画をコピーして開始 --</source>
+        <translation>-- Copiar un plan para comenzar --</translation>
     </message>
 </context>
 <context>
@@ -732,7 +638,7 @@ Esta acción no se puede deshacer. ¿Continuar?</translation>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="164" />
         <source>登録フィーチャーの確定</source>
-        <translation>Confirmar plan</translation>
+        <translation>Confirmar entidades registradas</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="174" />
@@ -765,7 +671,7 @@ Esta acción no se puede deshacer. ¿Continuar?</translation>
         <translation>Exportar GPKG</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="236" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="544" />
         <source>ロック</source>
         <translation>Bloquear</translation>
     </message>
@@ -800,114 +706,119 @@ Esta acción no se puede deshacer. ¿Continuar?</translation>
         <translation>Línea 2</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="317" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="366" />
         <source>▶ ショートカット</source>
         <translation>▶ Atajos</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="337" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="386" />
         <source>Ctrl+C</source>
         <translation>Ctrl+C</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="343" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="392" />
         <source>セルをコピー（タブ区切り）</source>
         <translation>Copiar celdas (separadas por tabulaciones)</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="349" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="398" />
         <source>Ctrl+V</source>
         <translation>Ctrl+V</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="355" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="404" />
         <source>クリップボードから貼り付け</source>
         <translation>Pegar desde el portapapeles</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="361" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="410" />
         <source>Shift+Scroll</source>
         <translation>Shift+Scroll</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="367" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="416" />
         <source>横スクロール</source>
         <translation>Desplazamiento horizontal</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="373" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="422" />
         <source>Ctrl+Arrow</source>
         <translation>Ctrl+Arrow</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="379" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="428" />
         <source>末端セルへ移動</source>
         <translation>Ir a la celda final</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="385" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="434" />
         <source>Ctrl+Shift+Arrow</source>
         <translation>Ctrl+Shift+Arrow</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="391" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="440" />
         <source>末端セルまで選択</source>
         <translation>Seleccionar hasta la celda final</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="397" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="446" />
         <source>Enter</source>
         <translation>Enter</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="403" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="452" />
         <source>セル編集モード切替</source>
         <translation>Alternar modo de edición de celda</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="443" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="492" />
         <source>ステータス</source>
         <translation>Estado</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="488" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="537" />
         <source>パネルを閉じる</source>
         <translation>Cerrar panel</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="495" />
-        <source>フィーチャー全件を描画</source>
-        <translation>Dibujar todas las entidades</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="502" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="554" />
         <source>全画面表示</source>
         <translation>Pantalla completa</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="530" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="589" />
         <source>■ 表示のみ</source>
         <translation>■ Solo visualización</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="536" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="595" />
         <source>■ 編集可能</source>
         <translation>■ Editable</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="542" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="601" />
         <source>■ 編集済み</source>
         <translation>■ Editado</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="562" />
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="627" />
         <source>言語</source>
         <translation>Idioma</translation>
     </message>
     <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="338" />
-        <source>Not required.</source>
-        <translation>No es necesario.</translation>
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="317" />
+        <source>▶ マップサムネイル</source>
+        <translation>▶ Miniatura del mapa</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="561" />
+        <source>別ウィンドウ表示</source>
+        <translation>Ventana separada</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget_base.ui" line="607" />
+        <source>■ 情報（後列）</source>
+        <translation>■ Información (fila trasera)</translation>
     </message>
 </context>
 </TS>

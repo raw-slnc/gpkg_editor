@@ -1,6 +1,0 @@
-[flake8]
-exclude =
-    i18n,
-    tools,
-    resources.py
-extend-ignore = E501

@@ -24,10 +24,22 @@ COLUMN_INFO = '情報'
 
 _STATES = [COLUMN_HIDDEN, COLUMN_DISPLAY, COLUMN_EDITABLE, COLUMN_INFO]
 _BTN_STYLE = {
-    COLUMN_HIDDEN: 'QPushButton{background:#cccccc;color:#666666;border:1px solid #aaa;padding:2px 8px;}',
-    COLUMN_DISPLAY: 'QPushButton{background:#4a90d9;color:white;border:1px solid #357abd;padding:2px 8px;}',
-    COLUMN_EDITABLE: 'QPushButton{background:#27ae60;color:white;border:1px solid #1e8449;padding:2px 8px;}',
-    COLUMN_INFO: 'QPushButton{background:#e67e22;color:white;border:1px solid #ca6f1e;padding:2px 8px;}',
+    COLUMN_HIDDEN: (
+        'QPushButton{background:#cccccc;color:#666666;'
+        'border:1px solid #aaa;padding:2px 8px;}'
+    ),
+    COLUMN_DISPLAY: (
+        'QPushButton{background:#4a90d9;color:white;'
+        'border:1px solid #357abd;padding:2px 8px;}'
+    ),
+    COLUMN_EDITABLE: (
+        'QPushButton{background:#27ae60;color:white;'
+        'border:1px solid #1e8449;padding:2px 8px;}'
+    ),
+    COLUMN_INFO: (
+        'QPushButton{background:#e67e22;color:white;'
+        'border:1px solid #ca6f1e;padding:2px 8px;}'
+    ),
 }
 
 _FILTER_ALL = '全て'
@@ -35,7 +47,10 @@ _FILTER_DISPLAY = '表示のみ'
 _FILTER_EDITABLE = '表示編集のみ'
 _FILTER_INFO = '情報のみ'
 _FILTER_HIDDEN = '選択無し'
-_FILTERS = [_FILTER_ALL, _FILTER_DISPLAY, _FILTER_EDITABLE, _FILTER_INFO, _FILTER_HIDDEN]
+_FILTERS = [
+    _FILTER_ALL, _FILTER_DISPLAY, _FILTER_EDITABLE,
+    _FILTER_INFO, _FILTER_HIDDEN,
+]
 
 
 class ColumnConfigDialog(QDialog, FORM_CLASS):
@@ -98,13 +113,19 @@ class ColumnConfigDialog(QDialog, FORM_CLASS):
         if f == _FILTER_ALL:
             return self.columns
         elif f == _FILTER_DISPLAY:
-            return [c for c in self.columns if self._config[c] == COLUMN_DISPLAY]
+            return [
+                c for c in self.columns if self._config[c] == COLUMN_DISPLAY
+            ]
         elif f == _FILTER_EDITABLE:
-            return [c for c in self.columns if self._config[c] == COLUMN_EDITABLE]
+            return [
+                c for c in self.columns if self._config[c] == COLUMN_EDITABLE
+            ]
         elif f == _FILTER_INFO:
             return [c for c in self.columns if self._config[c] == COLUMN_INFO]
         elif f == _FILTER_HIDDEN:
-            return [c for c in self.columns if self._config[c] == COLUMN_HIDDEN]
+            return [
+                c for c in self.columns if self._config[c] == COLUMN_HIDDEN
+            ]
         return self.columns
 
     def _total_pages(self, filtered):
@@ -141,11 +162,13 @@ class ColumnConfigDialog(QDialog, FORM_CLASS):
 
             num = col_indices[col_name]
             label = QLabel(f'{num}: {col_name}')
-            label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            label.setSizePolicy(
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+            )
 
             btn = QPushButton()
             btn.setMinimumWidth(60)
-            btn.setFocusPolicy(Qt.StrongFocus)
+            btn.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
             self._apply_btn_state(btn, self._config[col_name])
             btn.clicked.connect(
                 lambda _, cn=col_name, b=btn: self._cycle_state(cn, b)
@@ -164,7 +187,9 @@ class ColumnConfigDialog(QDialog, FORM_CLASS):
 
         # Vertical spacer to push items up
         max_row = min(len(page_items), self.ROWS_PER_PAGE)
-        spacer = QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        spacer = QSpacerItem(
+            0, 0, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding
+        )
         self._grid_layout.addItem(spacer, max_row, 0)
 
         # Navigation state
@@ -198,7 +223,9 @@ class ColumnConfigDialog(QDialog, FORM_CLASS):
             self._rebuild_grid()
 
     def _cycle_filter(self):
-        self._current_filter_idx = (self._current_filter_idx + 1) % len(_FILTERS)
+        self._current_filter_idx = (
+            self._current_filter_idx + 1
+        ) % len(_FILTERS)
         self._current_page = 0
         self._rebuild_grid()
 

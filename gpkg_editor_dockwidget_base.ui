@@ -555,6 +555,13 @@
            </property>
           </widget>
          </item>
+         <item>
+          <widget class="QCheckBox" name="chkWindowMode">
+           <property name="text">
+            <string>別ウィンドウ表示</string>
+           </property>
+          </widget>
+         </item>
         </layout>
        </widget>
       </item>
@@ -613,16 +620,6 @@
            </size>
           </property>
          </spacer>
-        </item>
-        <item>
-         <widget class="QPushButton" name="btnHistory">
-          <property name="text">
-           <string>履歴</string>
-          </property>
-          <property name="checkable">
-           <bool>true</bool>
-          </property>
-         </widget>
         </item>
         <item>
          <widget class="QPushButton" name="btnLanguage">

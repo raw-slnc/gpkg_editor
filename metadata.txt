@@ -6,13 +6,14 @@
 
 [general]
 name=GPKG Editor
-qgisMinimumVersion=3.16
+qgisMinimumVersion=4.0
+qgisMaximumVersion=4.99
 description=View and edit GeoPackage (GPKG) layer attributes with plan management and GPKG/CSV export.
 description[en]=View and edit GeoPackage (GPKG) layer attributes with plan management and GPKG/CSV export.
 description[es]=Visualice y edite atributos de capas GeoPackage (GPKG) con gestión de planes y exportación GPKG/CSV.
 description[pt]=Visualize e edite atributos de camadas GeoPackage (GPKG) com gestão de planos e exportação GPKG/CSV.
 description[ja]=GeoPackage（GPKG）レイヤー属性の閲覧・編集、計画管理、GPKG/CSV出力を行います。
-version=0.3.2
+version=1.0.0
 author=Hideharu Masai
 email=hideharumasai@void.mints.ne.jp
 
@@ -29,6 +30,7 @@ repository=https://github.com/raw-slnc/gpkg_editor
 
 hasProcessingProvider=no
 changelog=
+    1.0.0 - QGIS 4.x support: PyQt6 migration (scoped Qt/QEvent/Qgis/Qgs* enums, sip import via qgis.PyQt, exec_() to exec()); add a "Separate Window" toggle as an alternative to the floating dock — switches the editor into a genuine independent top-level window (visible in Alt+Tab, geometry remembered across sessions) instead of trying to make QDockWidget's own floating window behave like one, which was fragile and could leave the window stuck/unresponsive on redock; complete missing English/Spanish/Portuguese/German translations; remove export history panel (author/memo tracking, soft-delete, old-filename migration) — redundant now that non-destructive editing means exports rarely need browsing, and export files already serve as their own backup; GPKG export (non-overwrite) now auto-adds the exported file as a translucent 20%% comparison layer, inserted directly below the source GPKG layer in the layer tree, named "{plan_name}_{timestamp}"; drop unused resources.py (PyQt5-only scaffold, never imported); remove .flake8 suppression file entirely, fixing all ~124 line-length violations and a duplicate-dict-key bug in the translation build scripts (so the QGIS repository scan reports "Validated" instead of "Validated (configured)")
     0.3.2 - Final QGIS 3.x compatible release; improve floating dock behavior on Windows so the detached plugin window appears in Alt+Tab as a normal top-level window; keep fullscreen toggle limited to floating mode for more stable docked operation
     0.3.1 - Fix bandit security scan warnings: replace xml.etree.ElementTree with defusedxml in tools scripts (B405/B314); suppress false-positive SQL injection audits on parameterized/whitelisted queries with nosec B608; suppress intentional bare-except patterns with nosec B110
     0.3.0 - [CRITICAL FIX] edit values are now stored independently per plan — previously all plans shared the same edits, causing cross-plan data contamination when copying plans; existing databases are automatically migrated at load time; this is a fundamental spec change that makes each plan a fully self-contained, independently editable unit; dramatically improves switching between copy-related plans (7+ seconds reduced to under 0.1s by resetting header resize mode before cell population); reuse temp layer when switching plans on the same GPKG source (eliminates duplicate layer events); clean up orphan plan data on GPKG load

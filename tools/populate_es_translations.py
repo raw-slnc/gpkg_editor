@@ -9,12 +9,22 @@ from defusedxml import ElementTree as ET
 
 
 ES_MAP = {
+    "登録フィーチャーの確定": "Confirmar entidades registradas",
+    "計画作成を開始する": "Comenzar a crear un plan",
+    "▼ マップサムネイル": "▼ Miniatura del mapa",
+    "▶ マップサムネイル": "▶ Miniatura del mapa",
+    "不要": "No necesario",
+    "■ 情報（後列）": "■ Información (fila trasera)",
+    "{} に保存されました": "Guardado en {}",
+    "別ウィンドウ表示": "Ventana separada",
+    "コピー元の計画を選択してください（Escでキャンセル）":
+        "Seleccione el plan de origen para copiar (Esc para cancelar)",
+    "-- 計画をコピーして開始 --": "-- Copiar un plan para comenzar --",
     "カラム設定": "Configuración de columnas",
     "全て": "Todos",
     "非表示": "Oculto",
     "表示": "Mostrar",
     "編集": "Editar",
-    "情報": "Información",
     "表示のみ": "Solo visualización",
     "表示編集のみ": "Solo visualizar/editar",
     "情報のみ": "Solo información",
@@ -30,14 +40,16 @@ ES_MAP = {
     "地物が選択されていません": "No hay entidades seleccionadas",
     "交差するフィーチャーがありません": "No hay entidades que intersecten",
     "{} 件のフィーチャーが見つかりました": "Se encontraron {} entidades",
-    "表示カラムが設定されていません。カラム設定を行ってください。": "No hay columnas visibles configuradas. Configure las columnas.",
+    "表示カラムが設定されていません。カラム設定を行ってください。":
+        "No hay columnas visibles configuradas. Configure las columnas.",
     "保存エラー": "Error al guardar",
     "編集の保存に失敗しました: {}": "No se pudieron guardar las ediciones: {}",
     "フィーチャー数: -": "Número de entidades: -",
     "-- 計画を選択 --": "-- Seleccionar plan --",
     "計画「{}」を読み込みました ({} 件)": "Plan \"{}\" cargado ({} elementos)",
     "計画名を入力してください。": "Ingrese el nombre del plan.",
-    "テーブルにデータがありません。\n地物を選択してから保存してください。": "No hay datos en la tabla.\nSeleccione entidades antes de guardar.",
+    "テーブルにデータがありません。\n地物を選択してから保存してください。":
+        "No hay datos en la tabla.\nSeleccione entidades antes de guardar.",
     "計画「{}」を保存しました": "Plan \"{}\" guardado",
     "削除エラー": "Error al eliminar",
     "削除する計画を選択してください。": "Seleccione un plan para eliminar.",
@@ -46,22 +58,29 @@ ES_MAP = {
     "計画「{}」を削除しました": "Plan \"{}\" eliminado",
     "フィーチャー数: {}": "Número de entidades: {}",
     "フィーチャーの追加": "Agregar entidades",
-    "メインウィンドウでフィーチャーを選択してください（複数選択可）": "Seleccione entidades en la ventana principal (se permite selección múltiple)",
+    "メインウィンドウでフィーチャーを選択してください（複数選択可）":
+        "Seleccione entidades en la ventana principal "
+        "(se permite selección múltiple)",
     "フィーチャーの追加をキャンセルしました": "Se canceló la adición de entidades",
     "追加": "Agregar",
     "追加対象のフィーチャーがありません。": "No hay entidades para agregar.",
-    "選択されたフィーチャーはすべて計画に含まれています": "Todas las entidades seleccionadas ya están incluidas en el plan",
+    "選択されたフィーチャーはすべて計画に含まれています":
+        "Todas las entidades seleccionadas ya están incluidas en el plan",
     "{} 件のフィーチャーを追加します。よろしいですか？": "Se agregarán {} entidades. ¿Continuar?",
     "{} 件のフィーチャーを追加しました (計 {} 件)": "Se agregaron {} entidades (total: {})",
     "選択を確定する": "Confirmar selección",
     "キャンセル": "Cancelar",
-    "テーブルから削除するフィーチャーを選択してください。": "Seleccione en la tabla las entidades a eliminar.",
-    "選択された {} 件のフィーチャーを削除します。よろしいですか？": "Se eliminarán {} entidades seleccionadas. ¿Continuar?",
+    "テーブルから削除するフィーチャーを選択してください。":
+        "Seleccione en la tabla las entidades a eliminar.",
+    "選択された {} 件のフィーチャーを削除します。よろしいですか？":
+        "Se eliminarán {} entidades seleccionadas. ¿Continuar?",
     "{} 件のフィーチャーを削除しました (計 {} 件)": "Se eliminaron {} entidades (total: {})",
     "ステータス1行目": "Estado línea 1",
     "ステータス2行目": "Estado línea 2",
     "出力エラー": "Error de exportación",
-    "テーブルにデータがありません。\n地物を選択または計画を読み込んでから出力してください。": "No hay datos en la tabla.\nSeleccione entidades o cargue un plan antes de exportar.",
+    "テーブルにデータがありません。\n地物を選択または計画を読み込んでから出力してください。":
+        "No hay datos en la tabla.\n"
+        "Seleccione entidades o cargue un plan antes de exportar.",
     "GPKG出力先を選択": "Seleccione destino de exportación GPKG",
     "完了": "Completado",
     "GPKGファイルを出力しました:\n{}": "Archivo GPKG exportado:\n{}",
@@ -69,7 +88,9 @@ ES_MAP = {
     "情報": "Información",
     "保存する編集がありません。": "No hay ediciones para guardar.",
     "上書き確認": "Confirmación de sobrescritura",
-    "元のGPKGファイルに編集を書き込みます:\n{}\n\nこの操作は取り消せません。よろしいですか？": "Se escribirán las ediciones en el archivo GPKG original:\n{}\n\nEsta acción no se puede deshacer. ¿Continuar?",
+    "元のGPKGファイルに編集を書き込みます:\n{}\n\nこの操作は取り消せません。よろしいですか？":
+        "Se escribirán las ediciones en el archivo GPKG original:\n{}\n\n"
+        "Esta acción no se puede deshacer. ¿Continuar?",
     "上書き保存が完了しました": "Sobrescritura completada",
     "GPKGファイルに編集を書き込みました:\n{}": "Ediciones escritas en el archivo GPKG:\n{}",
     "上書き保存に失敗しました: {}": "Falló la sobrescritura: {}",
@@ -108,8 +129,36 @@ ES_MAP = {
     "■ 編集可能": "■ Editable",
     "■ 編集済み": "■ Editado",
     "言語": "Idioma",
-    "QGIS式風の書式（選択行の値を表示）\n\n\"カラム名\"  選択行のカラム値\n'テキスト'  文字列リテラル\n||  文字列結合    =, !=, >, <  比較\nif(条件, 真, 偽)  条件分岐\nround(数値[, 桁])  四捨五入（桁は省略可）\n\n集計関数（全行対象）:\n  count() / sum(\"COL\") / unique(\"COL\")\n\n例: \"名称\" || ' - ' || \"種別\" || '  (' || count() || '件)'":
-    "Formato estilo expresión de QGIS (muestra valores de la fila seleccionada)\n\n\"columna\"  valor de la columna de la fila seleccionada\n'texto'  literal de cadena\n||  concatenación    =, !=, >, <  comparación\nif(condición, verdadero, falso)  condicional\nround(número[, decimales])  redondeo\n\nFunciones de agregación (todas las filas):\n  count() / sum(\"COL\") / unique(\"COL\")\n\nEj.: \"Nombre\" || ' - ' || \"Tipo\" || ' (' || count() || ' elementos)'",
+    (
+        "QGIS式風の書式（選択行の値を表示）\n"
+        "\n"
+        "\"カラム名\"  選択行のカラム値\n"
+        "'テキスト'  文字列リテラル\n"
+        "||  文字列結合    =, !=, >, <  比較\n"
+        "if(条件, 真, 偽)  条件分岐\n"
+        "round(数値[, 桁])  四捨五入（桁は省略可）\n"
+        "\n"
+        "集計関数（全行対象）:\n"
+        "  count() / sum(\"COL\") / unique(\"COL\")\n"
+        "\n"
+        "例: \"名称\" || ' - ' || \"種別\" || '  (' || count() || '件)'"
+    ):
+        (
+            "Formato estilo expresión de QGIS "
+            "(muestra valores de la fila seleccionada)\n"
+            "\n"
+            "\"columna\"  valor de la columna de la fila seleccionada\n"
+            "'texto'  literal de cadena\n"
+            "||  concatenación    =, !=, >, <  comparación\n"
+            "if(condición, verdadero, falso)  condicional\n"
+            "round(número[, decimales])  redondeo\n"
+            "\n"
+            "Funciones de agregación (todas las filas):\n"
+            "  count() / sum(\"COL\") / unique(\"COL\")\n"
+            "\n"
+            "Ej.: \"Nombre\" || ' - ' || \"Tipo\" || ' (' || count() "
+            "|| ' elementos)'"
+        ),
 }
 
 
@@ -137,7 +186,10 @@ def main():
             src.startswith("color:")
             or src.startswith("font-size:")
             or src.startswith("QPushButton{")
-            or src in {"<", ">", "1/1", "Ctrl+C", "Ctrl+V", "Shift+Scroll", "Ctrl+Arrow", "Ctrl+Shift+Arrow", "Enter"}
+            or src in {
+                "<", ">", "1/1", "Ctrl+C", "Ctrl+V", "Shift+Scroll",
+                "Ctrl+Arrow", "Ctrl+Shift+Arrow", "Enter",
+            }
             or src.startswith("GeoPackage Files")
             or src.startswith("CSV Files")
         ):

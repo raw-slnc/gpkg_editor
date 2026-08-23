@@ -2,8 +2,10 @@
 import os
 
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
-from qgis.PyQt.QtCore import QCoreApplication, QSettings, Qt, QTranslator
+from qgis.PyQt.QtWidgets import QAction, QDialog, QDockWidget, QVBoxLayout
+from qgis.PyQt.QtCore import (
+    QCoreApplication, QSettings, Qt, QTimer, QTranslator,
+)
 
 
 class GpkgEditor:
@@ -15,9 +17,11 @@ class GpkgEditor:
         self.actions = []
         self.menu = self.tr('GPKG Editor')
         self.dock = None
+        self.dialog = None
         self.window = None
         self._translator = None
         self._active_locale = 'ja'
+        self._switching_container = False
 
     @staticmethod
     def tr(message):
@@ -50,7 +54,9 @@ class GpkgEditor:
     def _locale_candidates(self, locale):
         if locale is None:
             return self._detect_locale_candidates()
-        normalized = str(locale).replace('-', '_').split('.', 1)[0].split('@', 1)[0]
+        normalized = (
+            str(locale).replace('-', '_').split('.', 1)[0].split('@', 1)[0]
+        )
         if normalized in ('ja', ''):
             return []
         if normalized == 'en':
@@ -61,7 +67,8 @@ class GpkgEditor:
         return [normalized.lower()]
 
     def set_language(self, locale):
-        """Switch plugin translation at runtime. locale=None uses system locale."""
+        """Switch plugin translation at runtime. locale=None uses system
+        locale."""
         if locale is not None:
             QSettings().setValue('gpkg_editor/language', locale)
         self._remove_translator()
@@ -86,6 +93,8 @@ class GpkgEditor:
             self.actions[0].setText(self.tr('GPKG Editor'))
         if self.dock:
             self.dock.setWindowTitle(self.tr('GPKG Editor'))
+        if self.dialog:
+            self.dialog.setWindowTitle(self.tr('GPKG Editor'))
         if self.window and hasattr(self.window, 'retranslate_ui'):
             self.window.retranslate_ui()
 
@@ -111,34 +120,146 @@ class GpkgEditor:
             self.iface.removeVectorToolBarIcon(action)
         self.actions = []
 
+        if self.window:
+            self.window.cleanup()
+        if self.dialog:
+            self._save_dialog_geometry()
+            self.dialog.hide()
+            self.dialog.deleteLater()
+            self.dialog = None
         if self.dock:
-            if self.window:
-                self.window.cleanup()
             self.iface.removeDockWidget(self.dock)
             self.dock.deleteLater()
             self.dock = None
-            self.window = None
+        self.window = None
         self._remove_translator()
 
-    def run(self):
-        """プラグインを実行する。ドックを表示する。"""
-        if self.dock is None:
-            from .gpkg_editor_dockwidget import GpkgEditorDockWidget, GpkgEditorWindow
+    def _ensure_window(self):
+        if self.window is None:
+            from .gpkg_editor_dockwidget import (
+                GpkgEditorWindow,
+            )
             self.window = GpkgEditorWindow(
                 self.iface,
                 self.plugin_dir,
                 self.set_language,
                 self.get_active_locale,
             )
-            self.dock = GpkgEditorDockWidget(self.tr('GPKG Editor'), self.iface.mainWindow())
-            self.dock.setObjectName('GpkgEditorDock')
-            self.dock.setWidget(self.window)
-            self.window.attach_dock_widget(self.dock)
-            self.dock.setAllowedAreas(
-                Qt.BottomDockWidgetArea | Qt.TopDockWidgetArea
+            self.window.set_window_mode_callback(self._set_window_mode)
+
+    def _create_dock(self):
+        if self.dock is not None:
+            return
+        from .gpkg_editor_dockwidget import GpkgEditorDockWidget
+
+        self._ensure_window()
+        self.dock = GpkgEditorDockWidget(
+            self.tr('GPKG Editor'), self.iface.mainWindow()
+        )
+        self.dock.setObjectName('GpkgEditorDock')
+        self.dock.setWidget(self.window)
+        self.window.attach_dock_widget(self.dock)
+        self.dock.setAllowedAreas(
+            Qt.DockWidgetArea.BottomDockWidgetArea
+            | Qt.DockWidgetArea.TopDockWidgetArea
+        )
+        self.dock.setFeatures(
+            QDockWidget.DockWidgetFeature.DockWidgetClosable
+            | QDockWidget.DockWidgetFeature.DockWidgetMovable
+        )
+        self.iface.addDockWidget(
+            Qt.DockWidgetArea.BottomDockWidgetArea, self.dock
+        )
+        self.dock.visibilityChanged.connect(
+            self.window._on_visibility_changed
+        )
+
+    def _create_dialog(self):
+        if self.dialog is not None:
+            return
+        self._ensure_window()
+        self.dialog = QDialog(None, Qt.WindowType.Window)
+        self.dialog.setObjectName('GpkgEditorWindow')
+        self.dialog.setWindowTitle(self.tr('GPKG Editor'))
+        layout = QVBoxLayout(self.dialog)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.window)
+        self.window.attach_window_dialog(self.dialog)
+        self.window.show()
+        geometry = QSettings().value('gpkg_editor/window_geometry', None)
+        if geometry:
+            self.dialog.restoreGeometry(geometry)
+        else:
+            self.dialog.resize(1200, 600)
+        self.dialog.finished.connect(self._on_dialog_finished)
+
+    def _save_dialog_geometry(self):
+        if self.dialog is not None:
+            QSettings().setValue(
+                'gpkg_editor/window_geometry', self.dialog.saveGeometry()
             )
-            self.iface.addDockWidget(Qt.BottomDockWidgetArea, self.dock)
-            self.dock.visibilityChanged.connect(self.window._on_visibility_changed)
+
+    def _set_window_mode(self, enabled):
+        self._ensure_window()
+        self._switching_container = True
+        self.window.set_hide_cleanup_suspended(True)
+        try:
+            if enabled:
+                if self.dock is not None:
+                    try:
+                        self.dock.visibilityChanged.disconnect(
+                            self.window._on_visibility_changed
+                        )
+                    except TypeError:
+                        pass
+                    self.dock.setWidget(None)
+                    self.iface.removeDockWidget(self.dock)
+                    self.dock.deleteLater()
+                    self.dock = None
+                self._create_dialog()
+                self.dialog.show()
+                self.dialog.raise_()
+                self.dialog.activateWindow()
+            else:
+                if self.dialog is not None:
+                    self._save_dialog_geometry()
+                    layout = self.dialog.layout()
+                    if layout is not None:
+                        layout.removeWidget(self.window)
+                    self.window.setParent(None)
+                    self.dialog.hide()
+                    self.dialog.deleteLater()
+                    self.dialog = None
+                self._create_dock()
+                self.window.show()
+                self.dock.show()
+                self.dock.raise_()
+        finally:
+            self._switching_container = False
+            window = self.window
+            QTimer.singleShot(
+                0,
+                lambda: (
+                    window.set_hide_cleanup_suspended(False)
+                    if window is not None else None
+                ),
+            )
+
+    def _on_dialog_finished(self, *_args):
+        if self._switching_container or self.window is None:
+            return
+        self._save_dialog_geometry()
+
+    def run(self):
+        """プラグインを実行する。ドックまたは別ウィンドウを表示する。"""
+        if self.dialog is not None:
+            self.dialog.show()
+            self.dialog.raise_()
+            self.dialog.activateWindow()
+            return
+
+        if self.dock is None:
+            self._create_dock()
 
         if self.dock.isVisible():
             self.dock.raise_()

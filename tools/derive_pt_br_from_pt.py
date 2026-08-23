@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Derive pt_BR translations from pt with small locale-specific wording changes."""
+"""Derive pt_BR translations from pt with small locale-specific wording
+changes."""
 
 from __future__ import annotations
 
