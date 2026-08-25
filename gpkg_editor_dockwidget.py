@@ -473,9 +473,12 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         return super().eventFilter(obj, event)
 
     def _on_visibility_changed(self, visible):
-        """ドック非表示（×ボタン）時に選択・ラバーバンドを解除する。
-        吸着・分離操作では一時的に False が発火するため、1イベントループ後に判定する。"""
-        if not visible:
+        """ドック非表示（×ボタン）時に選択・ラバーバンドを解除する。別ウィンドウ側の
+        表示/非表示切替からも手動で呼ばれる。吸着・分離操作では一時的に False/True が
+        発火するため、1イベントループ後に判定する。"""
+        if visible:
+            QTimer.singleShot(0, self._on_maybe_shown)
+        else:
             QTimer.singleShot(0, self._on_maybe_hidden)
 
     def _on_floating_state_changed(self, is_floating):
@@ -493,6 +496,21 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self._remove_temp_layer()
             if self.data_manager.original_layer:
                 self.data_manager.original_layer.removeSelection()
+
+    def _on_maybe_shown(self):
+        """退避（非表示）時にクリアされた一時レイヤーを、再表示時に計画状態から
+        作り直す。_active_plan_name/_current_fidsは非表示中も保持されているため、
+        これらが残っていれば復元対象とみなす。"""
+        if self._suspend_hide_cleanup:
+            return
+        if not self.isVisible():
+            return
+        if (
+            self._active_plan_name
+            and self._current_fids
+            and not self._temp_layer_valid()
+        ):
+            self._create_temp_layer(self._active_plan_name)
 
     def cleanup(self):
         """プラグイン終了時のリソース解放。unload から呼ばれる。"""

@@ -249,6 +249,7 @@ class GpkgEditor:
         if self._switching_container or self.window is None:
             return
         self._save_dialog_geometry()
+        self.window._on_visibility_changed(False)
 
     def run(self):
         """プラグインを実行する。ドックまたは別ウィンドウを表示する。"""
@@ -256,6 +257,7 @@ class GpkgEditor:
             self.dialog.show()
             self.dialog.raise_()
             self.dialog.activateWindow()
+            self.window._on_visibility_changed(True)
             return
 
         if self.dock is None:
