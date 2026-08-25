@@ -6,6 +6,7 @@ from qgis.PyQt.QtWidgets import QAction, QDialog, QDockWidget, QVBoxLayout
 from qgis.PyQt.QtCore import (
     QCoreApplication, QSettings, Qt, QTimer, QTranslator,
 )
+from qgis.core import QgsApplication, QgsProject
 
 
 class GpkgEditor:
@@ -113,8 +114,40 @@ class GpkgEditor:
         self.iface.addPluginToVectorMenu(self.menu, action)
         self.actions.append(action)
 
+        QgsApplication.instance().aboutToQuit.connect(self._on_about_to_quit)
+        QgsProject.instance().readProject.connect(self._on_project_read)
+
+    def _on_about_to_quit(self):
+        """QGIS終了時のフック。ドック/別ウィンドウを閉じずに残したまま終了した
+        場合でも、実行中のプロジェクトから一時（計画）レイヤーを外しておく
+        （終了時点で既に保存済みのファイルまでは書き戻せないため、あくまで
+        メモリ上のクリーンアップ。ファイル側の保険は_on_project_read側）。"""
+        if self.window is not None:
+            self.window._remove_temp_layer()
+
+    def _on_project_read(self, *_args):
+        """プロジェクト読み込み時のフック。一時レイヤーが残ったまま保存された
+        プロジェクトを開いた場合に備え、読み込み直後に一時レイヤーを削除する。
+        gpkg_editorのウィンドウを一度も開いていないセッションでも効くよう、
+        ウィンドウ生成を待たずここで直接呼ぶ。"""
+        from .gpkg_editor_dockwidget import GpkgEditorWindow
+        GpkgEditorWindow._cleanup_orphan_temp_layers()
+
     def unload(self):
         """プラグインをアンロードする。"""
+        try:
+            QgsApplication.instance().aboutToQuit.disconnect(
+                self._on_about_to_quit
+            )
+        except TypeError:
+            pass
+        try:
+            QgsProject.instance().readProject.disconnect(
+                self._on_project_read
+            )
+        except TypeError:
+            pass
+
         for action in self.actions:
             self.iface.removePluginVectorMenu(self.menu, action)
             self.iface.removeVectorToolBarIcon(action)

@@ -1330,8 +1330,11 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self._on_temp_selection_changed
         )
 
-    def _cleanup_orphan_temp_layers(self):
-        """起動時に前回セッションで残存した一時レイヤーを削除する。"""
+    @staticmethod
+    def _cleanup_orphan_temp_layers():
+        """前回セッションで残存した一時レイヤーを削除する。ウィンドウ生成時
+        (__init__)に加え、プロジェクト読み込み時にもgpkg_editor.py側から
+        呼ばれるため、self状態には依存しないstaticmethodにしてある。"""
         to_remove = [
             lid for lid, layer in QgsProject.instance().mapLayers().items()
             if layer.customProperty('gpkg_editor_temp')
