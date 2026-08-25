@@ -129,9 +129,12 @@ class GpkgEditor:
         """プロジェクト読み込み時のフック。一時レイヤーが残ったまま保存された
         プロジェクトを開いた場合に備え、読み込み直後に一時レイヤーを削除する。
         gpkg_editorのウィンドウを一度も開いていないセッションでも効くよう、
-        ウィンドウ生成を待たずここで直接呼ぶ。"""
+        ウィンドウ生成を待たずここで直接呼ぶ。readProjectシグナルのハンドラ内は
+        QGIS本体側のプロジェクト読み込み処理（スナッピング設定の構築等）がまだ
+        完了しきっていない可能性があるため、1イベントループ後に遅延実行する
+        （removeMapLayerを呼んでもスナッピング設定側に反映されないタイミング問題を回避）。"""
         from .gpkg_editor_dockwidget import GpkgEditorWindow
-        GpkgEditorWindow._cleanup_orphan_temp_layers()
+        QTimer.singleShot(0, GpkgEditorWindow._cleanup_orphan_temp_layers)
 
     def unload(self):
         """プラグインをアンロードする。"""

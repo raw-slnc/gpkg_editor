@@ -1334,13 +1334,40 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
     def _cleanup_orphan_temp_layers():
         """前回セッションで残存した一時レイヤーを削除する。ウィンドウ生成時
         (__init__)に加え、プロジェクト読み込み時にもgpkg_editor.py側から
-        呼ばれるため、self状態には依存しないstaticmethodにしてある。"""
+        呼ばれるため、self状態には依存しないstaticmethodにしてある。
+
+        removeMapLayer単体だと、プロジェクト読み込み直後のタイミングでは
+        スナッピング設定側に削除が反映されず、対応レイヤーの無い
+        individual-layer-settingsが孤立したまま次回保存されクラッシュの
+        原因になることを実機で確認したため、削除前に明示的にスナッピング
+        設定を作り直して孤立を防ぐ。
+
+        このスナッピング設定の作り直し（現在ロードされているレイヤーの設定
+        だけを残す）は、今回削除するtempレイヤー分だけでなく、過去の
+        セッションで既に同じ理由で孤立してしまった個別設定（現在ロードされて
+        いないレイヤーIDへの参照）も同時に一掃する。旧バージョンで既にこの
+        問題を抱えたまま使い続けているプロジェクトを救済するため、削除対象の
+        tempレイヤーが無い場合でも毎回このクリーンアップを実行する。"""
+        proj = QgsProject.instance()
         to_remove = [
-            lid for lid, layer in QgsProject.instance().mapLayers().items()
+            lid for lid, layer in proj.mapLayers().items()
             if layer.customProperty('gpkg_editor_temp')
         ]
+
+        remove_set = set(to_remove)
+        sc = proj.snappingConfig()
+        keep = {
+            lid: (layer, sc.individualLayerSettings(layer))
+            for lid, layer in proj.mapLayers().items()
+            if isinstance(layer, QgsVectorLayer) and lid not in remove_set
+        }
+        sc.clearIndividualLayerSettings()
+        for layer, ils in keep.values():
+            sc.setIndividualLayerSettings(layer, ils)
+        proj.setSnappingConfig(sc)
+
         for lid in to_remove:
-            QgsProject.instance().removeMapLayer(lid)
+            proj.removeMapLayer(lid)
 
     def _temp_layer_valid(self):
         """一時レイヤーが存在し C++ オブジェクトが有効かどうかを返す。"""
