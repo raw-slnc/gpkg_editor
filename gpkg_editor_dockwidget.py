@@ -66,37 +66,7 @@ COLOR_EDITED = QBrush(QColor(255, 0, 0))      # 赤: 編集済み
 
 
 class GpkgEditorDockWidget(QDockWidget):
-    """QGIS に格納する標準 Dock。"""
-
-    def __init__(self, title, parent=None):
-        super().__init__(title, parent)
-        self._is_floating_fullscreen = False
-        self._pre_fullscreen_geometry = None
-        self.topLevelChanged.connect(self._on_floating_state_changed)
-
-    def _on_floating_state_changed(self, is_floating):
-        widget = self.widget()
-        if hasattr(widget, '_on_floating_state_changed'):
-            widget._on_floating_state_changed(is_floating)
-        if not is_floating:
-            self._is_floating_fullscreen = False
-            self._pre_fullscreen_geometry = None
-
-    def toggle_floating_fullscreen(self, checked):
-        if not self.isFloating():
-            return False
-
-        if checked:
-            self._pre_fullscreen_geometry = self.geometry()
-            self.showMaximized()
-            self._is_floating_fullscreen = True
-        else:
-            self.showNormal()
-            if self._pre_fullscreen_geometry is not None:
-                self.setGeometry(self._pre_fullscreen_geometry)
-            self._pre_fullscreen_geometry = None
-            self._is_floating_fullscreen = False
-        return True
+    """QGIS に格納する標準 Dock。ネイティブ floating は使わない（Closable/Movable のみ）。"""
 
 
 class GpkgEditorWindow(QWidget, FORM_CLASS):
@@ -144,6 +114,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         # 左パネル開閉チェックボックス
         self.chkPanelClose.toggled.connect(self._on_panel_close_toggled)
 
+        # ステータス表示設定アコーディオン
+        self.btnStatusConfigToggle.toggled.connect(self._toggle_status_config)
+        QTimer.singleShot(0, self._apply_status_config_closed_height)
+
         # サムネイルアコーディオン
         self.btnThumbnailToggle.toggled.connect(self._toggle_thumbnail)
         QTimer.singleShot(0, self._apply_thumbnail_closed_height)
@@ -182,7 +156,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.btnLock.toggled.connect(self._on_lock_toggled)
         self.chkLock.toggled.connect(self._on_lock_toggled)
         self.chkOverwrite.toggled.connect(self._on_overwrite_toggled)
-        self.chkFullscreen.toggled.connect(self._on_fullscreen_toggled)
         self.chkWindowMode.toggled.connect(self._on_window_mode_toggled)
         self.btnLanguage.clicked.connect(self._cycle_language)
         self.btnPlanSave.clicked.connect(self._on_plan_save)
@@ -242,14 +215,12 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._dock_widget = dock_widget
         self._window_dialog = None
         self.set_window_mode_checked(False)
-        self.chkFullscreen.setEnabled(dock_widget.isFloating())
         self.show()
 
     def attach_window_dialog(self, dialog):
         self._dock_widget = None
         self._window_dialog = dialog
         self.set_window_mode_checked(True)
-        self.chkFullscreen.setEnabled(True)
         self.show()
 
     def set_window_mode_callback(self, callback):
@@ -321,7 +292,11 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.chkLock.setText(self.tr('ロック'))
         self.chkOverwrite.setText(self.tr('GPKGレイヤーに上書き保存する'))
         self.chkPlanOnly.setText(self.tr('計画範囲のみ出力'))
-        self.groupStatusConfig.setTitle(self.tr('ステータス表示設定'))
+        self.btnStatusConfigToggle.setText(
+            self.tr('▼ ステータス表示設定')
+            if self.btnStatusConfigToggle.isChecked()
+            else self.tr('▶ ステータス表示設定')
+        )
         self.btnStatusRow1.setText(self.tr('1行目'))
         self.btnStatusRow2.setText(self.tr('2行目'))
         self.btnThumbnailToggle.setText(
@@ -342,7 +317,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         # Right panel
         self.groupStatusDisplay.setTitle(self.tr('ステータス'))
         self.chkPanelClose.setText(self.tr('パネルを閉じる'))
-        self.chkFullscreen.setText(self.tr('全画面表示'))
         self.chkWindowMode.setText(self.tr('別ウィンドウ表示'))
         self.lblLegendDisplay.setText(self.tr('■ 表示のみ'))
         self.lblLegendEditable.setText(self.tr('■ 編集可能'))
@@ -481,13 +455,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         else:
             QTimer.singleShot(0, self._on_maybe_hidden)
 
-    def _on_floating_state_changed(self, is_floating):
-        self.chkFullscreen.setEnabled(is_floating)
-        if not is_floating and self.chkFullscreen.isChecked():
-            self.chkFullscreen.blockSignals(True)
-            self.chkFullscreen.setChecked(False)
-            self.chkFullscreen.blockSignals(False)
-
     def _on_maybe_hidden(self):
         """ドックが本当に非表示になった場合のみクリーンアップする。"""
         if self._suspend_hide_cleanup:
@@ -554,6 +521,31 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         else:
             self._splitter.setSizes([380, max(0, sizes[1] - 380)])
 
+    def _apply_status_config_closed_height(self):
+        """初期・閉じ時: statusConfigSection をボタン1行分に制限し dock を縮小。"""
+        h = self.btnStatusConfigToggle.height()
+        self.statusConfigSection.setMaximumHeight(h if h > 0 else 28)
+        dock = self.parentWidget()
+        if dock and not getattr(dock, 'isFloating', lambda: True)():
+            target = self.rightPanel.sizeHint().height()
+            dock.setMaximumHeight(target)
+            QTimer.singleShot(100, lambda: dock.setMaximumHeight(16777215))
+
+    def _toggle_status_config(self, checked):
+        self.statusConfigContent.setVisible(checked)
+        self.btnStatusConfigToggle.setText(
+            self.tr('▼ ステータス表示設定') if checked
+            else self.tr('▶ ステータス表示設定')
+        )
+        if checked:
+            if self.btnThumbnailToggle.isChecked():
+                self.btnThumbnailToggle.setChecked(False)
+            if self.btnShortcutsToggle.isChecked():
+                self.btnShortcutsToggle.setChecked(False)
+            self.statusConfigSection.setMaximumHeight(16777215)
+        else:
+            QTimer.singleShot(0, self._apply_status_config_closed_height)
+
     def _apply_shortcuts_closed_height(self):
         """初期・閉じ時: shortcutsSection をボタン1行分に制限し dock を縮小。
         dock 縮小はフロート時には行わない（表示崩れの原因になるため）。
@@ -585,6 +577,8 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         if checked:
             if self.btnShortcutsToggle.isChecked():
                 self.btnShortcutsToggle.setChecked(False)
+            if self.btnStatusConfigToggle.isChecked():
+                self.btnStatusConfigToggle.setChecked(False)
             self.thumbnailSection.setMaximumHeight(16777215)
             QTimer.singleShot(0, self._render_thumbnail)
         else:
@@ -769,6 +763,8 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         if checked:
             if self.btnThumbnailToggle.isChecked():
                 self.btnThumbnailToggle.setChecked(False)
+            if self.btnStatusConfigToggle.isChecked():
+                self.btnStatusConfigToggle.setChecked(False)
             self.shortcutsSection.setMaximumHeight(16777215)
         else:
             QTimer.singleShot(0, self._apply_shortcuts_closed_height)
@@ -939,23 +935,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._syncing_selection = True
         layer.selectByIds(fids)
         self._syncing_selection = False
-
-    def _on_fullscreen_toggled(self, checked):
-        """全画面表示チェックの切り替え処理。"""
-        dock = self._dock_widget
-        if dock is not None:
-            if dock.toggle_floating_fullscreen(checked):
-                return
-        elif self._window_dialog is not None:
-            if checked:
-                self._window_dialog.showMaximized()
-            else:
-                self._window_dialog.showNormal()
-            return
-
-        self.chkFullscreen.blockSignals(True)
-        self.chkFullscreen.setChecked(False)
-        self.chkFullscreen.blockSignals(False)
 
     def _on_window_mode_toggled(self, checked):
         if self._window_mode_callback is None:

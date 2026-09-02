@@ -185,8 +185,13 @@
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="324" />
-        <source>ステータス表示設定</source>
-        <translation>Status Display Settings</translation>
+        <source>▼ ステータス表示設定</source>
+        <translation>▼ Status Display Settings</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="324" />
+        <source>▶ ステータス表示設定</source>
+        <translation>▶ Status Display Settings</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="325" />
@@ -257,11 +262,6 @@
         <location filename="../gpkg_editor_dockwidget.py" line="344" />
         <source>パネルを閉じる</source>
         <translation>Close panel</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="345" />
-        <source>全画面表示</source>
-        <translation>Full screen</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="347" />
@@ -692,8 +692,8 @@ This action cannot be undone. Continue?</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="280" />
-        <source>ステータス表示設定</source>
-        <translation>Status Display Settings</translation>
+        <source>▶ ステータス表示設定</source>
+        <translation>▶ Status Display Settings</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="286" />
@@ -779,11 +779,6 @@ This action cannot be undone. Continue?</translation>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="537" />
         <source>パネルを閉じる</source>
         <translation>Close panel</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="554" />
-        <source>全画面表示</source>
-        <translation>Full screen</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="589" />

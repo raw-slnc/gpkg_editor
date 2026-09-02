@@ -101,7 +101,7 @@ Aggregate functions (applied to all rows):
 
 Enabling lock mode freezes the map canvas — pan and zoom are disabled, but selection tools remain active. Table row selection highlights the corresponding feature (crosshair marker for point layers; rubber band for line/polygon layers), but the canvas does not pan to follow. This lets you browse the attribute table and compare features within a fixed spatial view.
 
-A **Lock** checkbox is also available in the status bar alongside the panel-close and fullscreen toggles.
+A **Lock** checkbox is also available in the status bar alongside the panel-close and separate-window toggles. In separate-window mode, use the window's own title bar (maximize button / double-click) to maximize or restore.
 
 ## Planned Features
 

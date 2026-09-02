@@ -479,8 +479,13 @@ Esta operação não pode ser desfeita. Continuar?</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="324" />
-        <source>ステータス表示設定</source>
-        <translation>Configuração de exibição de status</translation>
+        <source>▼ ステータス表示設定</source>
+        <translation>▼ Configuração de exibição de status</translation>
+    </message>
+    <message>
+        <location filename="../gpkg_editor_dockwidget.py" line="324" />
+        <source>▶ ステータス表示設定</source>
+        <translation>▶ Configuração de exibição de status</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="325" />
@@ -531,11 +536,6 @@ Esta operação não pode ser desfeita. Continuar?</translation>
         <location filename="../gpkg_editor_dockwidget.py" line="344" />
         <source>パネルを閉じる</source>
         <translation>Fechar painel</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="345" />
-        <source>全画面表示</source>
-        <translation>Tela cheia</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="347" />
@@ -692,8 +692,8 @@ Esta operação não pode ser desfeita. Continuar?</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="280" />
-        <source>ステータス表示設定</source>
-        <translation>Configuração de exibição de status</translation>
+        <source>▶ ステータス表示設定</source>
+        <translation>▶ Configuração de exibição de status</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="286" />
@@ -779,11 +779,6 @@ Esta operação não pode ser desfeita. Continuar?</translation>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="537" />
         <source>パネルを閉じる</source>
         <translation>Fechar painel</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget_base.ui" line="554" />
-        <source>全画面表示</source>
-        <translation>Tela cheia</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="589" />

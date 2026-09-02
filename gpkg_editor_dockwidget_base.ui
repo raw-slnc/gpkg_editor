@@ -273,31 +273,48 @@
         </layout>
        </widget>
       </item>
-      <!-- ステータス表示設定セクション -->
+      <!-- ステータス表示設定セクション（アコーディオン） -->
       <item>
-       <widget class="QGroupBox" name="groupStatusConfig">
-        <property name="title">
-         <string>ステータス表示設定</string>
-        </property>
-        <layout class="QHBoxLayout" name="statusConfigLayout">
+       <widget class="QWidget" name="statusConfigSection">
+        <layout class="QVBoxLayout" name="statusConfigSectionLayout">
+         <property name="spacing"><number>0</number></property>
+         <property name="leftMargin"><number>0</number></property>
+         <property name="topMargin"><number>0</number></property>
+         <property name="rightMargin"><number>0</number></property>
+         <property name="bottomMargin"><number>0</number></property>
          <item>
-          <widget class="QPushButton" name="btnStatusRow1">
-           <property name="text">
-            <string>1行目</string>
-           </property>
-           <property name="enabled">
-            <bool>false</bool>
+          <widget class="QPushButton" name="btnStatusConfigToggle">
+           <property name="text"><string>▶ ステータス表示設定</string></property>
+           <property name="flat"><bool>true</bool></property>
+           <property name="checkable"><bool>true</bool></property>
+           <property name="checked"><bool>false</bool></property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton{text-align:left;padding:3px 6px;font-size:11px;border:none;border-bottom:1px solid #ccc;background:transparent;}QPushButton:hover{background:#f0f0f0;}</string>
            </property>
           </widget>
          </item>
          <item>
-          <widget class="QPushButton" name="btnStatusRow2">
-           <property name="text">
-            <string>2行目</string>
-           </property>
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
+          <widget class="QWidget" name="statusConfigContent">
+           <property name="visible"><bool>false</bool></property>
+           <layout class="QHBoxLayout" name="statusConfigLayout">
+            <property name="spacing"><number>2</number></property>
+            <property name="leftMargin"><number>6</number></property>
+            <property name="topMargin"><number>4</number></property>
+            <property name="rightMargin"><number>6</number></property>
+            <property name="bottomMargin"><number>4</number></property>
+            <item>
+             <widget class="QPushButton" name="btnStatusRow1">
+              <property name="text"><string>1行目</string></property>
+              <property name="enabled"><bool>false</bool></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnStatusRow2">
+              <property name="text"><string>2行目</string></property>
+              <property name="enabled"><bool>false</bool></property>
+             </widget>
+            </item>
+           </layout>
           </widget>
          </item>
         </layout>
@@ -545,13 +562,6 @@
            </property>
            <property name="enabled">
             <bool>false</bool>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QCheckBox" name="chkFullscreen">
-           <property name="text">
-            <string>全画面表示</string>
            </property>
           </widget>
          </item>
