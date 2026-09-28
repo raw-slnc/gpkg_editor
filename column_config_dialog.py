@@ -65,13 +65,21 @@ class ColumnConfigDialog(QDialog, FORM_CLASS):
     GRID_COLS = 2
     ITEMS_PER_PAGE = ROWS_PER_PAGE * GRID_COLS
 
-    def __init__(self, columns, current_config=None, parent=None):
+    def __init__(
+        self, columns, current_config=None, parent=None,
+        non_editable_columns=None,
+    ):
         super().__init__(parent)
         self.setupUi(self)
         self.columns = list(columns)
+        self._non_editable = set(non_editable_columns or [])
         self._config = {}
         for col in self.columns:
-            self._config[col] = (current_config or {}).get(col, COLUMN_HIDDEN)
+            state = (current_config or {}).get(col, COLUMN_HIDDEN)
+            # 主キー列は編集不可のため、過去の設定に編集可が残っていても表示に降格
+            if state == COLUMN_EDITABLE and col in self._non_editable:
+                state = COLUMN_DISPLAY
+            self._config[col] = state
 
         self._current_page = 0
         self._current_filter_idx = 0
@@ -170,6 +178,10 @@ class ColumnConfigDialog(QDialog, FORM_CLASS):
             btn.setMinimumWidth(60)
             btn.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
             self._apply_btn_state(btn, self._config[col_name])
+            if col_name in self._non_editable:
+                btn.setToolTip(
+                    self.tr('主キー列のため編集はできません')
+                )
             btn.clicked.connect(
                 lambda _, cn=col_name, b=btn: self._cycle_state(cn, b)
             )
@@ -208,6 +220,8 @@ class ColumnConfigDialog(QDialog, FORM_CLASS):
         current = self._config[col_name]
         idx = _STATES.index(current)
         next_state = _STATES[(idx + 1) % len(_STATES)]
+        if next_state == COLUMN_EDITABLE and col_name in self._non_editable:
+            next_state = _STATES[(idx + 2) % len(_STATES)]
         self._config[col_name] = next_state
         self._apply_btn_state(btn, next_state)
 

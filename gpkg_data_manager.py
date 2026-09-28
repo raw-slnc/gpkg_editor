@@ -113,6 +113,18 @@ class GpkgDataManager:
             return []
         return [field.name() for field in self.original_layer.fields()]
 
+    def get_primary_key_fields(self):
+        """主キーを構成するフィールド名リストを返す（編集許可対象から除外するため）。"""
+        if not self.original_layer:
+            return []
+        fields = self.original_layer.fields()
+        provider = self.original_layer.dataProvider()
+        return [
+            fields.at(idx).name()
+            for idx in provider.pkAttributeIndexes()
+            if 0 <= idx < fields.count()
+        ]
+
     def get_intersecting_fids(self, geometry, crs=None):
         """指定ジオメトリと交差するフィーチャーのfidリストを返す。"""
         if not self.original_layer:

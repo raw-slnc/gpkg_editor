@@ -217,6 +217,9 @@ class GpkgEditor:
         self.dialog = QDialog(None, Qt.WindowType.Window)
         self.dialog.setObjectName('GpkgEditorWindow')
         self.dialog.setWindowTitle(self.tr('GPKG Editor'))
+        self.dialog.setWindowIcon(
+            QIcon(os.path.join(self.plugin_dir, 'icon.png'))
+        )
         layout = QVBoxLayout(self.dialog)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.window)

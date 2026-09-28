@@ -64,6 +64,13 @@ FORM_CLASS, _ = uic.loadUiType(
 COLOR_EDITABLE = QBrush(QColor(0, 0, 255))   # 青: 編集可能（未編集）
 COLOR_EDITED = QBrush(QColor(255, 0, 0))      # 赤: 編集済み
 
+# テーブルヘッダー文字色（凡例表示 lblLegend* の色と対応）
+_HEADER_COLOR_BY_STATE = {
+    COLUMN_DISPLAY: QBrush(QColor('#000000')),    # 黒: 表示のみ
+    COLUMN_EDITABLE: QBrush(QColor('#0066cc')),   # 青: 表示＋編集
+    COLUMN_INFO: QBrush(QColor('#e67e22')),       # 橙: 情報
+}
+
 
 class GpkgEditorDockWidget(QDockWidget):
     """QGIS に格納する標準 Dock。ネイティブ floating は使わない（Closable/Movable のみ）。"""
@@ -791,12 +798,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         layer_tree = QgsProject.instance().layerTreeRoot()
         restore_idx = 0
-        for layer in QgsProject.instance().mapLayers().values():
-            if not isinstance(layer, QgsVectorLayer):
-                continue
-            # レイヤーツリー（パネル）に存在しないものは除外
-            # （他プラグインがレジストリ未削除のままツリーからだけ消した場合の対策）
-            if layer_tree.findLayer(layer.id()) is None:
+        # レイヤーツリー（パネル）の表示順で走査し、コンボの並びをパネルと一致させる
+        for tree_layer in layer_tree.findLayers():
+            layer = tree_layer.layer()
+            if layer is None or not isinstance(layer, QgsVectorLayer):
                 continue
             # プラグインが内部で作成した一時レイヤーは除外
             if layer.customProperty('gpkg_editor_temp'):
@@ -887,7 +892,11 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
     def _on_column_config(self):
         columns = self.data_manager.get_original_fields()
-        dlg = ColumnConfigDialog(columns, self.column_config, self)
+        pk_columns = self.data_manager.get_primary_key_fields()
+        dlg = ColumnConfigDialog(
+            columns, self.column_config, self,
+            non_editable_columns=pk_columns,
+        )
         if dlg.exec() == ColumnConfigDialog.DialogCode.Accepted:
             self.column_config = dlg.get_config()
             self._mark_plan_dirty()
@@ -900,7 +909,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
                 self._editing = True
                 self.tableFeatures.setRowCount(0)
                 self.tableFeatures.setColumnCount(len(visible_cols))
-                self.tableFeatures.setHorizontalHeaderLabels(visible_cols)
+                self._set_table_headers(visible_cols)
                 self._editing = False
 
     # ──────────────────────────────────────────────
@@ -1573,8 +1582,12 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         ]
 
     def _get_edit_cols(self):
+        # 主キー列は誤って編集可能な設定が残っていても編集対象にしない
+        # （フィーチャー識別に使うfidと値が食い違うと編集が消失するため）
+        pk_cols = set(self.data_manager.get_primary_key_fields())
         return [
-            c for c, v in self.column_config.items() if v == COLUMN_EDITABLE
+            c for c, v in self.column_config.items()
+            if v == COLUMN_EDITABLE and c not in pk_cols
         ]
 
     def _get_info_cols(self):
@@ -1588,6 +1601,16 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             + self._get_edit_cols()
             + self._get_info_cols()
         )
+
+    def _set_table_headers(self, visible_cols):
+        """ヘッダー文字をカラム設定の状態色（表示のみ/表示＋編集/情報）で表示する。"""
+        for col_idx, col_name in enumerate(visible_cols):
+            item = QTableWidgetItem(col_name)
+            state = self.column_config.get(col_name)
+            color = _HEADER_COLOR_BY_STATE.get(state)
+            if color is not None:
+                item.setForeground(color)
+            self.tableFeatures.setHorizontalHeaderItem(col_idx, item)
 
     def _clear_table(self):
         self._editing = True
@@ -1625,7 +1648,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         _ut1 = time.perf_counter()
 
         self.tableFeatures.setColumnCount(len(visible_cols))
-        self.tableFeatures.setHorizontalHeaderLabels(visible_cols)
+        self._set_table_headers(visible_cols)
         self.tableFeatures.setRowCount(len(merged))
         _ut2 = time.perf_counter()
 
