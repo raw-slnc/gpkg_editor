@@ -112,7 +112,7 @@ Track how each feature's attributes have changed over time. Every edit is record
 
 ## Requirements
 
-- QGIS 3.16 or later
+- QGIS 4.0 or later
 
 ## Support
 
