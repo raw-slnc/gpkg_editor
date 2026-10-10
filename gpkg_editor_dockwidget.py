@@ -170,6 +170,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.btnPlanAddFeature.clicked.connect(self._on_plan_add_feature)
         self.btnPlanDeleteFeature.clicked.connect(self._on_plan_delete_feature)
         self.cmbPlan.currentIndexChanged.connect(self._on_plan_selected)
+        self.cmbPlan.currentIndexChanged.connect(
+            self._update_plan_save_enabled
+        )
+        self.cmbPlan.activated.connect(self._on_plan_activated)
         self.btnStatusRow1.clicked.connect(self._on_status_row1_config)
         self.btnStatusRow2.clicked.connect(self._on_status_row2_config)
         self.tableFeatures.cellChanged.connect(self._on_cell_changed)
@@ -273,6 +277,8 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             and self.cmbGpkgLayer.itemData(0) is None
         ):
             self.cmbGpkgLayer.setItemText(0, self.tr('-- 選択してください --'))
+        if self.cmbGpkgLayer.currentData() is None:
+            self.lblStatus.setText(self.tr('GPKGレイヤーを選択してください'))
         self.groupPlan.setTitle(self.tr('計画'))
         self.lblPlan.setText(self.tr('計画:'))
         self.lblPlanName.setText(self.tr('計画名:'))
@@ -281,14 +287,25 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             first_data = self.cmbPlan.itemData(0)
             if first_data is None:
                 self.cmbPlan.setItemText(0, self.tr('-- 計画を選択 --'))
-        if self._plan_active or self._get_visible_cols():
-            self.btnPlanSave.setText(self.tr('登録フィーチャーの確定'))
-        else:
-            self.btnPlanSave.setText(self.tr('計画作成を開始する'))
+        for index in range(self.cmbPlan.count()):
+            item_data = self.cmbPlan.itemData(index)
+            if item_data == self._COPY_SENTINEL:
+                self.cmbPlan.setItemText(
+                    index, self.tr('-- 計画をコピーして開始 --')
+                )
+            elif item_data == self._NEW_PLAN_SENTINEL:
+                self.cmbPlan.setItemText(index, self.tr('-- 新規計画を追加 --'))
+        self.btnPlanSave.setText(self.tr('計画を保存'))
         self.btnPlanDelete.setText(self.tr('削除'))
         if not self._feature_add_mode:
-            self.btnPlanAddFeature.setText(self.tr('フィーチャーの追加'))
-        self.btnPlanDeleteFeature.setText(self.tr('フィーチャーの削除'))
+            self.btnPlanAddFeature.setText(self.tr('対象を追加'))
+        self.btnPlanDeleteFeature.setText(self.tr('対象を外す'))
+        if self._current_fids:
+            self.lblFeatureCount.setText(
+                self.tr('対象数: {}').format(len(self._current_fids))
+            )
+        else:
+            self.lblFeatureCount.setText(self.tr('対象数: -'))
         self.groupOperations.setTitle(self.tr('操作'))
         self.btnColumnConfig.setText(self.tr('カラム設定'))
         self.btnExportGpkg.setText(self.tr('GPKG出力'))
@@ -881,7 +898,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self.btnStatusRow2.setEnabled(True)
         self._set_plan_ui_enabled(True)
         self._refresh_plan_combo()
-        self.btnPlanSave.setText(self.tr('計画作成を開始する'))
         self._update_thumbnail_for_layer()
 
         self._clear_table()
@@ -900,8 +916,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         if dlg.exec() == ColumnConfigDialog.DialogCode.Accepted:
             self.column_config = dlg.get_config()
             self._mark_plan_dirty()
-            if self._get_visible_cols():
-                self.btnPlanSave.setText(self.tr('登録フィーチャーの確定'))
             if self._current_fids:
                 self._update_table(self._current_fids)
             else:
@@ -1749,7 +1763,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
     def _set_plan_ui_enabled(self, enabled):
         self.cmbPlan.setEnabled(enabled)
         self.lineEditPlanName.setEnabled(enabled)
-        self.btnPlanSave.setEnabled(enabled)
         self.btnPlanDelete.setEnabled(enabled)
         self.btnPlanAddFeature.setEnabled(False)
         self.btnPlanDeleteFeature.setEnabled(False)
@@ -1757,9 +1770,11 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self._deactivate_plan()
             self.cmbPlan.clear()
             self.lineEditPlanName.clear()
-            self.lblFeatureCount.setText(self.tr('フィーチャー数: -'))
+            self.lblFeatureCount.setText(self.tr('対象数: -'))
+        self._update_plan_save_enabled()
 
     _COPY_SENTINEL = '__copy_plan__'
+    _NEW_PLAN_SENTINEL = '__new_plan__'
 
     def _enter_copy_mode(self):
         self._copy_mode = True
@@ -1772,6 +1787,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self.cmbPlan.addItem(name)
         self.cmbPlan.setCurrentIndex(-1)
         self.cmbPlan.blockSignals(False)
+        self._update_plan_save_enabled()
         QTimer.singleShot(0, self.cmbPlan.showPopup)
 
     def _exit_copy_mode(self):
@@ -1822,12 +1838,48 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             self.cmbPlan.addItem(name)
         if plans:
             self.cmbPlan.insertSeparator(self.cmbPlan.count())
+        self.cmbPlan.addItem(self.tr('-- 新規計画を追加 --'))
+        self.cmbPlan.setItemData(
+            self.cmbPlan.count() - 1, self._NEW_PLAN_SENTINEL
+        )
+        if plans:
             self.cmbPlan.addItem(self.tr('-- 計画をコピーして開始 --'))
             self.cmbPlan.setItemData(
                 self.cmbPlan.count() - 1, self._COPY_SENTINEL
             )
         self.cmbPlan.setCurrentIndex(0)
         self.cmbPlan.blockSignals(False)
+        self._update_plan_save_enabled()
+
+    def _update_plan_save_enabled(self):
+        """計画の読込中か「新規計画を追加」選択中のみ保存ボタンを押せるようにする。"""
+        self.btnPlanSave.setEnabled(
+            self.cmbPlan.isEnabled()
+            and not self._copy_mode
+            and (
+                self._plan_active
+                or self.cmbPlan.currentData() == self._NEW_PLAN_SENTINEL
+            )
+        )
+
+    def _start_new_plan(self):
+        self._deactivate_plan()
+        self._clear_table()
+        self.lineEditPlanName.clear()
+        self.lineEditPlanName.setFocus()
+        self.lblStatus.setText(
+            self.tr('計画名を入力し、対象を選択してください')
+        )
+
+    def _on_plan_activated(self, index):
+        # 選択中の項目を選び直しても currentIndexChanged は出ないため、
+        # 「新規計画を追加」の選び直しはここで拾う
+        if (
+            not self._copy_mode
+            and index == self.cmbPlan.currentIndex()
+            and self.cmbPlan.itemData(index) == self._NEW_PLAN_SENTINEL
+        ):
+            self._start_new_plan()
 
     def _on_plan_selected(self, index):
         if self._copy_mode:
@@ -1839,12 +1891,14 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         if self.cmbPlan.itemData(index) == self._COPY_SENTINEL:
             self._enter_copy_mode()
             return
+        if self.cmbPlan.itemData(index) == self._NEW_PLAN_SENTINEL:
+            self._start_new_plan()
+            return
         if index <= 0:
             self._deactivate_plan()
             self._clear_table()
             self.lineEditPlanName.clear()
             self.lblStatus.setText(self.tr('GPKGレイヤーを選択してください'))
-            self.btnPlanSave.setText(self.tr('計画作成を開始する'))
             return
         plan_name = self.cmbPlan.currentText()
         plan = self.data_manager.load_plan(plan_name)
@@ -1867,7 +1921,6 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._activate_plan(plan_name)
         _t1 = time.perf_counter()
         self._mark_plan_clean()
-        self.btnPlanSave.setText(self.tr('登録フィーチャーの確定'))
         self._update_table(self._current_fids)
         _t2 = time.perf_counter()
         self._render_thumbnail()
@@ -1909,6 +1962,32 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             )
             return
 
+        existing_names = set(self.data_manager.list_plans())
+        old_name = self._active_plan_name if self._plan_active else None
+        if old_name and name != old_name:
+            if name in existing_names:
+                QMessageBox.warning(
+                    self,
+                    self.tr('計画名'),
+                    self.tr('同名の計画があります。別の名前を入力してください。'),
+                )
+                return
+            if not self.data_manager.rename_plan(old_name, name):
+                QMessageBox.warning(
+                    self,
+                    self.tr('計画名'),
+                    self.tr('計画名の変更に失敗しました。'),
+                )
+                return
+            self._active_plan_name = name
+        elif old_name is None and name in existing_names:
+            QMessageBox.warning(
+                self,
+                self.tr('計画名'),
+                self.tr('同名の計画があります。別の名前を入力してください。'),
+            )
+            return
+
         self.data_manager.save_plan(
             name, self._current_fids, self.column_config,
             self._get_status_exprs(),
@@ -1928,7 +2007,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
     def _on_plan_delete(self):
         idx = self.cmbPlan.currentIndex()
-        if idx <= 0:
+        if idx <= 0 or self.cmbPlan.itemData(idx) is not None:
             QMessageBox.warning(
                 self, self.tr('削除エラー'), self.tr('削除する計画を選択してください。')
             )
@@ -1952,7 +2031,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
     def _update_feature_count(self):
         self.lblFeatureCount.setText(
-            self.tr('フィーチャー数: {}').format(len(self._current_fids))
+            self.tr('対象数: {}').format(len(self._current_fids))
         )
 
     def _activate_plan(self, name):
@@ -1961,6 +2040,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._active_plan_name = name
         self.btnPlanAddFeature.setEnabled(True)
         self.btnPlanDeleteFeature.setEnabled(True)
+        self._update_plan_save_enabled()
         self._create_temp_layer(name)
         self._zoom_to_plan_extent()
 
@@ -2004,9 +2084,10 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._active_plan_name = None
         self._feature_add_mode = False
         self._mark_plan_clean()
-        self.btnPlanAddFeature.setText(self.tr('フィーチャーの追加'))
+        self.btnPlanAddFeature.setText(self.tr('対象を追加'))
         self.btnPlanAddFeature.setEnabled(False)
         self.btnPlanDeleteFeature.setEnabled(False)
+        self._update_plan_save_enabled()
         self._remove_temp_layer()
         if self.data_manager.original_layer:
             self.data_manager.original_layer.removeSelection()
@@ -2028,15 +2109,15 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         active_layer = self._get_add_mode_layer()
         if not active_layer:
             self._feature_add_mode = False
-            self.btnPlanAddFeature.setText(self.tr('フィーチャーの追加'))
-            self.lblStatus.setText(self.tr('フィーチャーの追加をキャンセルしました'))
+            self.btnPlanAddFeature.setText(self.tr('対象を追加'))
+            self.lblStatus.setText(self.tr('対象の追加をキャンセルしました'))
             return
 
         selected = active_layer.selectedFeatures()
         if not selected:
             self._feature_add_mode = False
-            self.btnPlanAddFeature.setText(self.tr('フィーチャーの追加'))
-            self.lblStatus.setText(self.tr('フィーチャーの追加をキャンセルしました'))
+            self.btnPlanAddFeature.setText(self.tr('対象を追加'))
+            self.lblStatus.setText(self.tr('対象の追加をキャンセルしました'))
             return
 
         # 追加対象のfidを取得（_get_add_mode_layer は同一ソースのみ返す）
@@ -2044,7 +2125,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         if not new_fids:
             QMessageBox.information(
-                self, self.tr('追加'), self.tr('追加対象のフィーチャーがありません。')
+                self, self.tr('追加'), self.tr('追加する対象がありません。')
             )
             return
 
@@ -2054,9 +2135,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         if not added:
             self._feature_add_mode = False
-            self.btnPlanAddFeature.setText(self.tr('フィーチャーの追加'))
+            self.btnPlanAddFeature.setText(self.tr('対象を追加'))
             self.lblStatus.setText(
-                self.tr('選択されたフィーチャーはすべて計画に含まれています')
+                self.tr('選択したものはすべて計画の対象に含まれています')
             )
             return
 
@@ -2064,13 +2145,13 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         ret = QMessageBox.question(
             self,
             self.tr('確認'),
-            self.tr('{} 件のフィーチャーを追加します。よろしいですか？').format(len(added)),
+            self.tr('{} 件を計画の対象に追加します。よろしいですか？').format(len(added)),
             QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
         )
         if ret != QMessageBox.StandardButton.Ok:
             self._feature_add_mode = False
-            self.btnPlanAddFeature.setText(self.tr('フィーチャーの追加'))
-            self.lblStatus.setText(self.tr('フィーチャーの追加をキャンセルしました'))
+            self.btnPlanAddFeature.setText(self.tr('対象を追加'))
+            self.lblStatus.setText(self.tr('対象の追加をキャンセルしました'))
             return
 
         self._current_fids = self._current_fids + added
@@ -2087,9 +2168,9 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
 
         # モードをリセット
         self._feature_add_mode = False
-        self.btnPlanAddFeature.setText(self.tr('フィーチャーの追加'))
+        self.btnPlanAddFeature.setText(self.tr('対象を追加'))
         self.lblStatus.setText(
-            self.tr('{} 件のフィーチャーを追加しました (計 {} 件)').format(
+            self.tr('{} 件を計画の対象に追加しました (計 {} 件)').format(
                 len(added), len(self._current_fids)
             )
         )
@@ -2125,7 +2206,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
             QMessageBox.warning(
                 self,
                 self.tr('削除エラー'),
-                self.tr('テーブルから削除するフィーチャーを選択してください。'),
+                self.tr('計画から外す対象をテーブルで選択してください。'),
             )
             return
 
@@ -2144,7 +2225,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         ret = QMessageBox.question(
             self,
             self.tr('確認'),
-            self.tr('選択された {} 件のフィーチャーを削除します。よろしいですか？').format(
+            self.tr('選択した {} 件の対象を計画から外します。よろしいですか？').format(
                 len(remove_fids)
             ),
             QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
@@ -2155,6 +2236,8 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._current_fids = [
             fid for fid in self._current_fids if fid not in remove_fids
         ]
+        # 外した対象の編集値は残さない（出力・上書きに混ざらないように）
+        self.data_manager.delete_edits(self._active_plan_name, remove_fids)
 
         # 計画を自動保存
         self.data_manager.save_plan(
@@ -2166,7 +2249,7 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         self._update_table(self._current_fids)
         self._update_temp_layer_subset()
         self.lblStatus.setText(
-            self.tr('{} 件のフィーチャーを削除しました (計 {} 件)').format(
+            self.tr('{} 件の対象を計画から外しました (計 {} 件)').format(
                 len(remove_fids), len(self._current_fids)
             )
         )
@@ -2390,7 +2473,15 @@ class GpkgEditorWindow(QWidget, FORM_CLASS):
         if not layer:
             return
 
-        all_edits = self.data_manager.get_all_edits(self._active_plan_name)
+        # 計画の対象分だけを書き込む
+        plan_fids = set(self._current_fids)
+        all_edits = {
+            fid: col_edits
+            for fid, col_edits in self.data_manager.get_all_edits(
+                self._active_plan_name
+            ).items()
+            if fid in plan_fids
+        }
         if not all_edits:
             QMessageBox.information(
                 self, self.tr('情報'), self.tr('保存する編集がありません。')

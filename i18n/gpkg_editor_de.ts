@@ -125,8 +125,8 @@
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="1820" />
-        <source>登録フィーチャーの確定</source>
-        <translation>Plan bestätigen</translation>
+        <source>計画を保存</source>
+        <translation>Plan speichern</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="310" />
@@ -135,13 +135,13 @@
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="2040" />
-        <source>フィーチャーの追加</source>
+        <source>対象を追加</source>
         <translation>Objekte hinzufügen</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="313" />
-        <source>フィーチャーの削除</source>
-        <translation>Objekte löschen</translation>
+        <source>対象を外す</source>
+        <translation>Objekte entfernen</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="314" />
@@ -330,18 +330,13 @@
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="1710" />
-        <source>フィーチャー数: -</source>
+        <source>対象数: -</source>
         <translation>Objektanzahl: -</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="1825" />
         <source>計画「{}」を読み込みました ({} 件)</source>
         <translation>Plan „{}" geladen ({} Objekte)</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1797" />
-        <source>計画作成を開始する</source>
-        <translation>Plan erstellen</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="1844" />
@@ -387,7 +382,7 @@ Bitte Objekte auswählen und dann speichern.</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="1904" />
-        <source>フィーチャー数: {}</source>
+        <source>対象数: {}</source>
         <translation>Objektanzahl: {}</translation>
     </message>
     <message>
@@ -397,7 +392,7 @@ Bitte Objekte auswählen und dann speichern.</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="2023" />
-        <source>フィーチャーの追加をキャンセルしました</source>
+        <source>対象の追加をキャンセルしました</source>
         <translation>Hinzufügen von Objekten abgebrochen</translation>
     </message>
     <message>
@@ -407,23 +402,23 @@ Bitte Objekte auswählen und dann speichern.</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="1996" />
-        <source>追加対象のフィーチャーがありません。</source>
+        <source>追加する対象がありません。</source>
         <translation>Keine Objekte zum Hinzufügen.</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="2008" />
-        <source>選択されたフィーチャーはすべて計画に含まれています</source>
+        <source>選択したものはすべて計画の対象に含まれています</source>
         <translation>Alle ausgewählten Objekte sind bereits im Plan enthalten</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="2014" />
-        <source>{} 件のフィーチャーを追加します。よろしいですか？</source>
-        <translation>{} Objekte hinzufügen. Fortfahren?</translation>
+        <source>{} 件を計画の対象に追加します。よろしいですか？</source>
+        <translation>{} Objekte zum Plan hinzufügen. Fortfahren?</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="2041" />
-        <source>{} 件のフィーチャーを追加しました (計 {} 件)</source>
-        <translation>{} Objekte hinzugefügt (gesamt: {})</translation>
+        <source>{} 件を計画の対象に追加しました (計 {} 件)</source>
+        <translation>{} Objekte zum Plan hinzugefügt (gesamt: {})</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="2061" />
@@ -437,18 +432,18 @@ Bitte Objekte auswählen und dann speichern.</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="2075" />
-        <source>テーブルから削除するフィーチャーを選択してください。</source>
-        <translation>Bitte Objekte zum Löschen aus der Tabelle auswählen.</translation>
+        <source>計画から外す対象をテーブルで選択してください。</source>
+        <translation>Bitte zu entfernende Objekte in der Tabelle auswählen.</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="2094" />
-        <source>選択された {} 件のフィーチャーを削除します。よろしいですか？</source>
-        <translation>{} ausgewählte Objekte löschen. Fortfahren?</translation>
+        <source>選択した {} 件の対象を計画から外します。よろしいですか？</source>
+        <translation>Die {} ausgewählten Objekte aus dem Plan entfernen. Fortfahren?</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="2118" />
-        <source>{} 件のフィーチャーを削除しました (計 {} 件)</source>
-        <translation>{} Objekte gelöscht (gesamt: {})</translation>
+        <source>{} 件の対象を計画から外しました (計 {} 件)</source>
+        <translation>{} Objekte aus dem Plan entfernt (gesamt: {})</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="2129" />
@@ -582,6 +577,22 @@ Diese Aktion kann nicht rückgängig gemacht werden. Fortfahren?</translation>
         <source>-- 計画をコピーして開始 --</source>
         <translation>-- Plan kopieren zum Starten --</translation>
     </message>
+    <message>
+        <source>-- 新規計画を追加 --</source>
+        <translation>-- Neuen Plan hinzufügen --</translation>
+    </message>
+    <message>
+        <source>計画名を入力し、対象を選択してください</source>
+        <translation>Plannamen eingeben und Objekte auswählen</translation>
+    </message>
+    <message>
+        <source>同名の計画があります。別の名前を入力してください。</source>
+        <translation>Ein Plan mit diesem Namen existiert bereits. Bitte geben Sie einen anderen Namen ein.</translation>
+    </message>
+    <message>
+        <source>計画名の変更に失敗しました。</source>
+        <translation>Der Planname konnte nicht geändert werden.</translation>
+    </message>
 </context>
 <context>
     <name>GpkgEditorWindowBase</name>
@@ -632,13 +643,13 @@ Diese Aktion kann nicht rückgängig gemacht werden. Fortfahren?</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="152" />
-        <source>フィーチャー数: -</source>
+        <source>対象数: -</source>
         <translation>Objektanzahl: -</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="164" />
-        <source>登録フィーチャーの確定</source>
-        <translation>Plan bestätigen</translation>
+        <source>計画を保存</source>
+        <translation>Plan speichern</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="174" />
@@ -647,13 +658,13 @@ Diese Aktion kann nicht rückgängig gemacht werden. Fortfahren?</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="184" />
-        <source>フィーチャーの追加</source>
+        <source>対象を追加</source>
         <translation>Objekte hinzufügen</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="194" />
-        <source>フィーチャーの削除</source>
-        <translation>Objekte löschen</translation>
+        <source>対象を外す</source>
+        <translation>Objekte entfernen</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="210" />

@@ -315,6 +315,22 @@ class GpkgDataManager:
         finally:
             conn.close()
 
+    def delete_edits(self, plan_name, fids):
+        """指定計画から外したフィーチャーの編集データを削除する。"""
+        if not plan_name or not fids:
+            return
+        conn = self._open_db()
+        if not conn:
+            return
+        try:
+            conn.executemany(
+                'DELETE FROM edits WHERE plan_name = ? AND orig_fid = ?',
+                [(plan_name, fid) for fid in fids],
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
     def save_edit(self, fid, column, value, edit_cols, plan_name):
         """編集データを保存する。"""
         if not plan_name:
@@ -436,6 +452,36 @@ class GpkgDataManager:
                 )
             conn.commit()
             return True
+        finally:
+            conn.close()
+
+    def rename_plan(self, old_name, new_name):
+        """計画名と、その計画に紐づく編集データを変更する。"""
+        if old_name == new_name:
+            return True
+        conn = self._open_db()
+        if not conn:
+            return False
+        try:
+            if conn.execute(
+                'SELECT 1 FROM plans WHERE name = ?', (new_name,)
+            ).fetchone():
+                return False
+            updated = conn.execute(
+                'UPDATE plans SET name = ? WHERE name = ?',
+                (new_name, old_name),
+            )
+            if updated.rowcount == 0:
+                return False
+            conn.execute(
+                'UPDATE edits SET plan_name = ? WHERE plan_name = ?',
+                (new_name, old_name),
+            )
+            conn.commit()
+            return True
+        except sqlite3.Error:
+            conn.rollback()
+            return False
         finally:
             conn.close()
 
@@ -583,6 +629,27 @@ class GpkgDataManager:
                         (orphan_name,),
                     )
                 conn.commit()
+
+            # 計画から外した対象の編集値（旧バージョンで残ったもの）を削除
+            for name, fids_json in conn.execute(
+                'SELECT name, fids FROM plans'
+            ).fetchall():
+                plan_fids = set(json.loads(fids_json))
+                stale = [
+                    (name, fid) for (fid,) in conn.execute(
+                        'SELECT DISTINCT orig_fid FROM edits '
+                        'WHERE plan_name = ?',
+                        (name,),
+                    ).fetchall()
+                    if fid not in plan_fids
+                ]
+                if stale:
+                    conn.executemany(
+                        'DELETE FROM edits '
+                        'WHERE plan_name = ? AND orig_fid = ?',
+                        stale,
+                    )
+            conn.commit()
         except Exception:  # nosec B110
             pass
         finally:

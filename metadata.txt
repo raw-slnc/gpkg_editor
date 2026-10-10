@@ -13,7 +13,7 @@ description[en]=View and edit GeoPackage (GPKG) layer attributes with plan manag
 description[es]=Visualice y edite atributos de capas GeoPackage (GPKG) con gestión de planes y exportación GPKG/CSV.
 description[pt]=Visualize e edite atributos de camadas GeoPackage (GPKG) com gestão de planos e exportação GPKG/CSV.
 description[ja]=GeoPackage（GPKG）レイヤー属性の閲覧・編集、計画管理、GPKG/CSV出力を行います。
-version=1.0.3
+version=1.1.0
 author=Hideharu Masai
 email=hideharumasai@void.mints.ne.jp
 
@@ -30,6 +30,7 @@ repository=https://github.com/raw-slnc/gpkg_editor
 
 hasProcessingProvider=no
 changelog=
+    1.1.0 - [CRITICAL FIX] Fixed removed plan targets keeping edits that could still be written back to the original GPKG or included in full exports. Removed targets now discard their edits, overwrite writes only the plan’s current targets, and old leftover edits are cleaned up on load. Plan management was also improved with rename support, duplicate-name protection, an explicit “Add New Plan” entry, and clearer target add/remove wording.
     1.0.3 - [CRITICAL FIX] the primary key column (typically fid) can no longer be set to editable in Column Config — editing it silently corrupted row tracking, causing other edits in the same row to be dropped from GPKG/CSV export without any warning; GPKG layer dropdown now lists layers in the same order as the Layers panel; Separate Window mode now shows the plugin's own icon in its title bar instead of the QGIS application icon; table column headers are now color-coded to match the existing legend (black = display only, blue = editable, orange = info), making it easier to tell at a glance which columns can be edited
     1.0.2 -Minor UI adjustments: remove the redundant status-bar full-screen checkbox (in Separate Window mode, use the window's own title-bar controls to maximize or restore); collapse the left-panel "Status Display Settings" group into a toggle section, consistent with the Map Thumbnail and Shortcuts sections
     1.0.1 - Fix Separate Window mode not clearing the active plan's temp layer when the window was closed with the close button; recreate the temp layer automatically when the dock/window is shown again after being hidden; [CRITICAL FIX] fix a project-save crash in QgsSnappingConfig::writeProject caused by orphaned per-layer snapping settings from removed temp layers; orphaned snapping settings from earlier sessions are now cleaned up automatically during project load

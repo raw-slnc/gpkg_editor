@@ -9,8 +9,7 @@ from defusedxml import ElementTree as ET
 
 
 ES_MAP = {
-    "登録フィーチャーの確定": "Confirmar entidades registradas",
-    "計画作成を開始する": "Comenzar a crear un plan",
+    "計画を保存": "Guardar plan",
     "▼ マップサムネイル": "▼ Miniatura del mapa",
     "▶ マップサムネイル": "▶ Miniatura del mapa",
     "不要": "No necesario",
@@ -44,7 +43,7 @@ ES_MAP = {
         "No hay columnas visibles configuradas. Configure las columnas.",
     "保存エラー": "Error al guardar",
     "編集の保存に失敗しました: {}": "No se pudieron guardar las ediciones: {}",
-    "フィーチャー数: -": "Número de entidades: -",
+    "対象数: -": "Número de elementos: -",
     "-- 計画を選択 --": "-- Seleccionar plan --",
     "計画「{}」を読み込みました ({} 件)": "Plan \"{}\" cargado ({} elementos)",
     "計画名を入力してください。": "Ingrese el nombre del plan.",
@@ -56,25 +55,30 @@ ES_MAP = {
     "確認": "Confirmación",
     "計画「{}」を削除しますか？": "¿Eliminar el plan \"{}\"?",
     "計画「{}」を削除しました": "Plan \"{}\" eliminado",
-    "フィーチャー数: {}": "Número de entidades: {}",
-    "フィーチャーの追加": "Agregar entidades",
+    "対象数: {}": "Número de elementos: {}",
+    "対象を追加":
+        "Agregar elementos",
     "メインウィンドウでフィーチャーを選択してください（複数選択可）":
         "Seleccione entidades en la ventana principal "
         "(se permite selección múltiple)",
-    "フィーチャーの追加をキャンセルしました": "Se canceló la adición de entidades",
+    "対象の追加をキャンセルしました":
+        "Se canceló la adición de elementos",
     "追加": "Agregar",
-    "追加対象のフィーチャーがありません。": "No hay entidades para agregar.",
-    "選択されたフィーチャーはすべて計画に含まれています":
-        "Todas las entidades seleccionadas ya están incluidas en el plan",
-    "{} 件のフィーチャーを追加します。よろしいですか？": "Se agregarán {} entidades. ¿Continuar?",
-    "{} 件のフィーチャーを追加しました (計 {} 件)": "Se agregaron {} entidades (total: {})",
+    "追加する対象がありません。": "No hay elementos para agregar.",
+    "選択したものはすべて計画の対象に含まれています":
+        "Todas las entidades seleccionadas ya son elementos del plan",
+    "{} 件を計画の対象に追加します。よろしいですか？":
+        "Se agregarán {} elementos al plan. ¿Continuar?",
+    "{} 件を計画の対象に追加しました (計 {} 件)":
+        "Se agregaron {} elementos al plan (total: {})",
     "選択を確定する": "Confirmar selección",
     "キャンセル": "Cancelar",
-    "テーブルから削除するフィーチャーを選択してください。":
-        "Seleccione en la tabla las entidades a eliminar.",
-    "選択された {} 件のフィーチャーを削除します。よろしいですか？":
-        "Se eliminarán {} entidades seleccionadas. ¿Continuar?",
-    "{} 件のフィーチャーを削除しました (計 {} 件)": "Se eliminaron {} entidades (total: {})",
+    "計画から外す対象をテーブルで選択してください。":
+        "Seleccione en la tabla los elementos que se quitarán del plan.",
+    "選択した {} 件の対象を計画から外します。よろしいですか？":
+        "Se quitarán {} elementos seleccionados del plan. ¿Continuar?",
+    "{} 件の対象を計画から外しました (計 {} 件)":
+        "Se quitaron {} elementos del plan (total: {})",
     "ステータス1行目": "Estado línea 1",
     "ステータス2行目": "Estado línea 2",
     "出力エラー": "Error de exportación",
@@ -103,10 +107,17 @@ ES_MAP = {
     "計画": "Plan",
     "計画:": "Plan:",
     "計画名:": "Nombre del plan:",
+    "-- 新規計画を追加 --": "-- Agregar nuevo plan --",
+    "計画名を入力し、対象を選択してください":
+        "Ingrese un nombre de plan y seleccione elementos",
+    "同名の計画があります。別の名前を入力してください。":
+        "Ya existe un plan con este nombre. Ingrese otro nombre.",
+    "計画名の変更に失敗しました。": "No se pudo cambiar el nombre del plan.",
     "計画名を入力...": "Ingrese nombre del plan...",
     "保存": "Guardar",
     "削除": "Eliminar",
-    "フィーチャーの削除": "Eliminar entidades",
+    "対象を外す":
+        "Quitar elementos",
     "操作": "Operaciones",
     "GPKG出力": "Exportar GPKG",
     "CSV出力": "Exportar CSV",

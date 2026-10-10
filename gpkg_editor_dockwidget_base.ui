@@ -149,7 +149,7 @@
          <item>
           <widget class="QLabel" name="lblFeatureCount">
            <property name="text">
-            <string>フィーチャー数: -</string>
+            <string>対象数: -</string>
            </property>
            <property name="styleSheet">
             <string notr="true">color: #666666; font-size: 11px;</string>
@@ -161,7 +161,7 @@
            <item row="0" column="0">
             <widget class="QPushButton" name="btnPlanSave">
              <property name="text">
-              <string>登録フィーチャーの確定</string>
+              <string>計画を保存</string>
              </property>
              <property name="enabled">
               <bool>false</bool>
@@ -181,7 +181,7 @@
            <item row="1" column="0">
             <widget class="QPushButton" name="btnPlanAddFeature">
              <property name="text">
-              <string>フィーチャーの追加</string>
+              <string>対象を追加</string>
              </property>
              <property name="enabled">
               <bool>false</bool>
@@ -191,7 +191,7 @@
            <item row="1" column="1">
             <widget class="QPushButton" name="btnPlanDeleteFeature">
              <property name="text">
-              <string>フィーチャーの削除</string>
+              <string>対象を外す</string>
              </property>
              <property name="enabled">
               <bool>false</bool>

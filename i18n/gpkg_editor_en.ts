@@ -125,8 +125,8 @@
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="1820" />
-        <source>登録フィーチャーの確定</source>
-        <translation>Confirm Registered Features</translation>
+        <source>計画を保存</source>
+        <translation>Save Plan</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="310" />
@@ -135,13 +135,13 @@
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="2040" />
-        <source>フィーチャーの追加</source>
-        <translation>Add Features</translation>
+        <source>対象を追加</source>
+        <translation>Add Targets</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="313" />
-        <source>フィーチャーの削除</source>
-        <translation>Delete Features</translation>
+        <source>対象を外す</source>
+        <translation>Remove Targets</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="314" />
@@ -330,18 +330,13 @@
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="1710" />
-        <source>フィーチャー数: -</source>
-        <translation>Feature count: -</translation>
+        <source>対象数: -</source>
+        <translation>Target count: -</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="1825" />
         <source>計画「{}」を読み込みました ({} 件)</source>
         <translation>Plan "{}" loaded ({} items)</translation>
-    </message>
-    <message>
-        <location filename="../gpkg_editor_dockwidget.py" line="1797" />
-        <source>計画作成を開始する</source>
-        <translation>Start Creating a Plan</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="1844" />
@@ -387,8 +382,8 @@ Please select features before saving.</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="1904" />
-        <source>フィーチャー数: {}</source>
-        <translation>Feature count: {}</translation>
+        <source>対象数: {}</source>
+        <translation>Target count: {}</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="1973" />
@@ -397,8 +392,8 @@ Please select features before saving.</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="2023" />
-        <source>フィーチャーの追加をキャンセルしました</source>
-        <translation>Feature add canceled</translation>
+        <source>対象の追加をキャンセルしました</source>
+        <translation>Adding targets canceled</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="1996" />
@@ -407,23 +402,23 @@ Please select features before saving.</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="1996" />
-        <source>追加対象のフィーチャーがありません。</source>
-        <translation>No target features to add.</translation>
+        <source>追加する対象がありません。</source>
+        <translation>No targets to add.</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="2008" />
-        <source>選択されたフィーチャーはすべて計画に含まれています</source>
-        <translation>All selected features are already included in the plan</translation>
+        <source>選択したものはすべて計画の対象に含まれています</source>
+        <translation>All selected features are already targets of the plan</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="2014" />
-        <source>{} 件のフィーチャーを追加します。よろしいですか？</source>
-        <translation>Add {} features. Continue?</translation>
+        <source>{} 件を計画の対象に追加します。よろしいですか？</source>
+        <translation>Add {} targets to the plan. Continue?</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="2041" />
-        <source>{} 件のフィーチャーを追加しました (計 {} 件)</source>
-        <translation>{} features added (total: {})</translation>
+        <source>{} 件を計画の対象に追加しました (計 {} 件)</source>
+        <translation>{} targets added to the plan (total: {})</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="2061" />
@@ -437,18 +432,18 @@ Please select features before saving.</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="2075" />
-        <source>テーブルから削除するフィーチャーを選択してください。</source>
-        <translation>Select features to delete from the table.</translation>
+        <source>計画から外す対象をテーブルで選択してください。</source>
+        <translation>Select targets to remove from the plan in the table.</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="2094" />
-        <source>選択された {} 件のフィーチャーを削除します。よろしいですか？</source>
-        <translation>Delete {} selected features. Continue?</translation>
+        <source>選択した {} 件の対象を計画から外します。よろしいですか？</source>
+        <translation>Remove {} selected targets from the plan. Continue?</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="2118" />
-        <source>{} 件のフィーチャーを削除しました (計 {} 件)</source>
-        <translation>{} features deleted (total: {})</translation>
+        <source>{} 件の対象を計画から外しました (計 {} 件)</source>
+        <translation>{} targets removed from the plan (total: {})</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget.py" line="2129" />
@@ -582,6 +577,22 @@ This action cannot be undone. Continue?</translation>
         <source>-- 計画をコピーして開始 --</source>
         <translation>-- Copy a plan to start --</translation>
     </message>
+    <message>
+        <source>-- 新規計画を追加 --</source>
+        <translation>-- Add New Plan --</translation>
+    </message>
+    <message>
+        <source>計画名を入力し、対象を選択してください</source>
+        <translation>Enter a plan name and select targets</translation>
+    </message>
+    <message>
+        <source>同名の計画があります。別の名前を入力してください。</source>
+        <translation>A plan with this name already exists. Please enter another name.</translation>
+    </message>
+    <message>
+        <source>計画名の変更に失敗しました。</source>
+        <translation>Failed to rename the plan.</translation>
+    </message>
 </context>
 <context>
     <name>GpkgEditorWindowBase</name>
@@ -632,13 +643,13 @@ This action cannot be undone. Continue?</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="152" />
-        <source>フィーチャー数: -</source>
-        <translation>Feature count: -</translation>
+        <source>対象数: -</source>
+        <translation>Target count: -</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="164" />
-        <source>登録フィーチャーの確定</source>
-        <translation>Confirm Registered Features</translation>
+        <source>計画を保存</source>
+        <translation>Save Plan</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="174" />
@@ -647,13 +658,13 @@ This action cannot be undone. Continue?</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="184" />
-        <source>フィーチャーの追加</source>
-        <translation>Add Features</translation>
+        <source>対象を追加</source>
+        <translation>Add Targets</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="194" />
-        <source>フィーチャーの削除</source>
-        <translation>Delete Features</translation>
+        <source>対象を外す</source>
+        <translation>Remove Targets</translation>
     </message>
     <message>
         <location filename="../gpkg_editor_dockwidget_base.ui" line="210" />

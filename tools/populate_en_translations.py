@@ -9,8 +9,7 @@ from defusedxml import ElementTree as ET
 
 
 EN_MAP = {
-    "登録フィーチャーの確定": "Confirm Registered Features",
-    "計画作成を開始する": "Start Creating a Plan",
+    "計画を保存": "Save Plan",
     "▼ マップサムネイル": "▼ Map Thumbnail",
     "▶ マップサムネイル": "▶ Map Thumbnail",
     "不要": "Not required",
@@ -44,7 +43,7 @@ EN_MAP = {
         "No visible columns are configured. Please configure columns.",
     "保存エラー": "Save Error",
     "編集の保存に失敗しました: {}": "Failed to save edits: {}",
-    "フィーチャー数: -": "Feature count: -",
+    "対象数: -": "Target count: -",
     "-- 計画を選択 --": "-- Select plan --",
     "計画「{}」を読み込みました ({} 件)": "Plan \"{}\" loaded ({} items)",
     "計画名を入力してください。": "Please enter a plan name.",
@@ -56,23 +55,29 @@ EN_MAP = {
     "確認": "Confirmation",
     "計画「{}」を削除しますか？": "Delete plan \"{}\"?",
     "計画「{}」を削除しました": "Plan \"{}\" deleted",
-    "フィーチャー数: {}": "Feature count: {}",
-    "フィーチャーの追加": "Add Features",
+    "対象数: {}": "Target count: {}",
+    "対象を追加":
+        "Add Targets",
     "メインウィンドウでフィーチャーを選択してください（複数選択可）":
         "Select features in the main window (multi-select supported)",
-    "フィーチャーの追加をキャンセルしました": "Feature add canceled",
+    "対象の追加をキャンセルしました":
+        "Adding targets canceled",
     "追加": "Add",
-    "追加対象のフィーチャーがありません。": "No target features to add.",
-    "選択されたフィーチャーはすべて計画に含まれています":
-        "All selected features are already included in the plan",
-    "{} 件のフィーチャーを追加します。よろしいですか？": "Add {} features. Continue?",
-    "{} 件のフィーチャーを追加しました (計 {} 件)": "{} features added (total: {})",
+    "追加する対象がありません。": "No targets to add.",
+    "選択したものはすべて計画の対象に含まれています":
+        "All selected features are already targets of the plan",
+    "{} 件を計画の対象に追加します。よろしいですか？":
+        "Add {} targets to the plan. Continue?",
+    "{} 件を計画の対象に追加しました (計 {} 件)":
+        "{} targets added to the plan (total: {})",
     "選択を確定する": "Confirm Selection",
     "キャンセル": "Cancel",
-    "テーブルから削除するフィーチャーを選択してください。": "Select features to delete from the table.",
-    "選択された {} 件のフィーチャーを削除します。よろしいですか？":
-        "Delete {} selected features. Continue?",
-    "{} 件のフィーチャーを削除しました (計 {} 件)": "{} features deleted (total: {})",
+    "計画から外す対象をテーブルで選択してください。":
+        "Select targets to remove from the plan in the table.",
+    "選択した {} 件の対象を計画から外します。よろしいですか？":
+        "Remove {} selected targets from the plan. Continue?",
+    "{} 件の対象を計画から外しました (計 {} 件)":
+        "{} targets removed from the plan (total: {})",
     "ステータス1行目": "Status Line 1",
     "ステータス2行目": "Status Line 2",
     "出力エラー": "Export Error",
@@ -100,10 +105,17 @@ EN_MAP = {
     "計画": "Plan",
     "計画:": "Plan:",
     "計画名:": "Plan Name:",
+    "-- 新規計画を追加 --": "-- Add New Plan --",
+    "計画名を入力し、対象を選択してください":
+        "Enter a plan name and select targets",
+    "同名の計画があります。別の名前を入力してください。":
+        "A plan with this name already exists. Please enter another name.",
+    "計画名の変更に失敗しました。": "Failed to rename the plan.",
     "計画名を入力...": "Enter plan name...",
     "保存": "Save",
     "削除": "Delete",
-    "フィーチャーの削除": "Delete Features",
+    "対象を外す":
+        "Remove Targets",
     "操作": "Operations",
     "GPKG出力": "Export GPKG",
     "CSV出力": "Export CSV",

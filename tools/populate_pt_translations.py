@@ -9,8 +9,7 @@ from defusedxml import ElementTree as ET
 
 
 PT_MAP = {
-    "登録フィーチャーの確定": "Confirmar feições registradas",
-    "計画作成を開始する": "Começar a criar um plano",
+    "計画を保存": "Salvar plano",
     "▼ マップサムネイル": "▼ Miniatura do mapa",
     "▶ マップサムネイル": "▶ Miniatura do mapa",
     "不要": "Não necessário",
@@ -44,7 +43,7 @@ PT_MAP = {
         "Nenhuma coluna visível configurada. Configure as colunas.",
     "保存エラー": "Erro ao salvar",
     "編集の保存に失敗しました: {}": "Falha ao salvar edições: {}",
-    "フィーチャー数: -": "Número de feições: -",
+    "対象数: -": "Número de itens: -",
     "-- 計画を選択 --": "-- Selecionar plano --",
     "計画「{}」を読み込みました ({} 件)": "Plano \"{}\" carregado ({} itens)",
     "計画名を入力してください。": "Digite o nome do plano.",
@@ -56,24 +55,30 @@ PT_MAP = {
     "確認": "Confirmação",
     "計画「{}」を削除しますか？": "Deseja excluir o plano \"{}\"?",
     "計画「{}」を削除しました": "Plano \"{}\" excluído",
-    "フィーチャー数: {}": "Número de feições: {}",
-    "フィーチャーの追加": "Adicionar feições",
+    "対象数: {}": "Número de itens: {}",
+    "対象を追加":
+        "Adicionar itens",
     "メインウィンドウでフィーチャーを選択してください（複数選択可）":
         "Selecione feições na janela principal "
         "(seleção múltipla permitida)",
-    "フィーチャーの追加をキャンセルしました": "Adição de feições cancelada",
+    "対象の追加をキャンセルしました":
+        "Adição de itens cancelada",
     "追加": "Adicionar",
-    "追加対象のフィーチャーがありません。": "Não há feições para adicionar.",
-    "選択されたフィーチャーはすべて計画に含まれています":
-        "Todas as feições selecionadas já estão no plano",
-    "{} 件のフィーチャーを追加します。よろしいですか？": "Adicionar {} feições. Continuar?",
-    "{} 件のフィーチャーを追加しました (計 {} 件)": "{} feições adicionadas (total: {})",
+    "追加する対象がありません。": "Não há itens para adicionar.",
+    "選択したものはすべて計画の対象に含まれています":
+        "Todas as feições selecionadas já são itens do plano",
+    "{} 件を計画の対象に追加します。よろしいですか？":
+        "Adicionar {} itens ao plano. Continuar?",
+    "{} 件を計画の対象に追加しました (計 {} 件)":
+        "{} itens adicionados ao plano (total: {})",
     "選択を確定する": "Confirmar seleção",
     "キャンセル": "Cancelar",
-    "テーブルから削除するフィーチャーを選択してください。": "Selecione na tabela as feições a excluir.",
-    "選択された {} 件のフィーチャーを削除します。よろしいですか？":
-        "Excluir {} feições selecionadas. Continuar?",
-    "{} 件のフィーチャーを削除しました (計 {} 件)": "{} feições removidas (total: {})",
+    "計画から外す対象をテーブルで選択してください。":
+        "Selecione na tabela os itens a remover do plano.",
+    "選択した {} 件の対象を計画から外します。よろしいですか？":
+        "Remover {} itens selecionados do plano. Continuar?",
+    "{} 件の対象を計画から外しました (計 {} 件)":
+        "{} itens removidos do plano (total: {})",
     "ステータス1行目": "Status - linha 1",
     "ステータス2行目": "Status - linha 2",
     "出力エラー": "Erro de exportação",
@@ -102,10 +107,17 @@ PT_MAP = {
     "計画": "Plano",
     "計画:": "Plano:",
     "計画名:": "Nome do plano:",
+    "-- 新規計画を追加 --": "-- Adicionar novo plano --",
+    "計画名を入力し、対象を選択してください":
+        "Digite um nome de plano e selecione itens",
+    "同名の計画があります。別の名前を入力してください。":
+        "Já existe um plano com este nome. Digite outro nome.",
+    "計画名の変更に失敗しました。": "Falha ao alterar o nome do plano.",
     "計画名を入力...": "Digite o nome do plano...",
     "保存": "Salvar",
     "削除": "Excluir",
-    "フィーチャーの削除": "Remover feições",
+    "対象を外す":
+        "Remover itens",
     "操作": "Operações",
     "GPKG出力": "Exportar GPKG",
     "CSV出力": "Exportar CSV",
